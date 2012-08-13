@@ -1,0 +1,2 @@
+from wmap import wmap
+
