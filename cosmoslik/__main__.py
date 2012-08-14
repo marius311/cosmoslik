@@ -79,7 +79,7 @@ else:
     args = vars(parser.parse_args())
     try:
         main(args)
-    except Exception as e:
+    except BaseException as e:
         sys.stderr.write('\033[91m')
         traceback.print_exception(type(e), e, None, None, sys.stderr)
         sys.stderr.write('\033[0m')

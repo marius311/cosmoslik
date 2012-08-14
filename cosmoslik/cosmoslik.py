@@ -128,6 +128,10 @@ def initialize_covariance(params):
 
 def build(module=None):
 
+    if not os.path.exists(os.path.join(os.path.dirname(__file__),'..','Makefile.inc')):
+        raise Exception(("Create a 'Makefile.inc' before building plugins.\n"
+                         "See 'Makefile.inc.example' for help."))
+
     rootdir = os.path.join(os.path.dirname(__file__),'plugins')
 
     def build_module(module):

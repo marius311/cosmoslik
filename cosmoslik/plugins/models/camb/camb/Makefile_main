@@ -64,5 +64,11 @@ Matrix_utils.o:
 	$(F90C) $(F90FLAGS) -c Matrix_utils.F90	
 
 clean:
-	-rm -f *.o *.a *.d core *.mod
+	-rm -f *.o *.a *.d core *.mod *.so
+
+pycamb: ../pycamb.so
+
+../pycamb.so: $(CAMBLIB) inidriver_wrap.f90
+	f2py -c inidriver_wrap.f90 --f90flags=-cpp -m pycamb -L. -lcamb -lgomp --debug $(F2PYFLAGS)
+	mv pycamb.so ..
 

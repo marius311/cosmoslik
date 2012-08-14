@@ -1,9 +1,10 @@
 import os, sys, re
-from numpy import zeros, loadtxt, hstack
+from numpy import zeros, loadtxt, hstack, arange
 from cosmoslik.plugins import Model
 
 try: import camb4py
 except ImportError: import local_camb4py as camb4py
+from cosmoslik.plugins.plugins import SubprocessExtension
 
 class camb(Model):
     """
@@ -64,11 +65,11 @@ class camb(Model):
     def init(self,p):
         pcamb = p.get('camb',{})
         self.cambdir = os.path.abspath(os.path.join(os.path.dirname(__file__),'camb'))
-        pcamb.setdefault('executable',os.path.join(self.cambdir,'camb'))
-        if not os.path.exists(pcamb['executable']): raise Exception("Could not find camb executable at '%s'"%pcamb['executable'])
         self.cambdefs = camb4py.read_ini(pcamb.get('defaults',os.path.join(self.cambdir,'defaults.ini')))
+        self.cambdefs['HighLExtrapTemplate'] = os.path.abspath(os.path.join(self.cambdir,'HighLExtrapTemplate_lenspotentialCls.dat'))
         self.cambdefs.update(pcamb)
-        self.camb = camb4py.load(pcamb['executable'], self.cambdefs)
+        self.camb = camb_f2py()
+
     
     
     def get(self,p,required):
@@ -122,11 +123,45 @@ class camb(Model):
 
             #TODO: figure out where to put this stuff
             p['z_drag'] = float(output['misc']['z_drag'])
-            p['rs_drag'] = float(output['misc']['rs_drag'])
         
         except Exception as e:
-            raise Exception("""An error occurred reading CAMB result: %s \nCAMB output:\n"""%repr(e)+output['stdout'])
+            raise Exception("""An error occurred reading CAMB result: %s \nCAMB output:\n"""%repr(e)+output.get('stdout'))
 
 
         return result
 
+
+def try_bool2str(value):
+    if value is True: return 'T'
+    elif value is False: return 'F'
+    else: return value
+
+
+class camb_f2py(object):
+    
+    def __init__(self):
+        self.pycamb = SubprocessExtension('pycamb',globals())
+        
+    def __call__(self, **params):
+        lines = ['%s = %s'%(k,try_bool2str(v)) for k,v in params.items()]
+        max_line_len = max(len(l) for l in lines)
+        sp = ''.join(sorted([l.ljust(max_line_len) for l in lines]))
+        self.pycamb.run(sp,max_line_len,len(lines))
+
+        def add_ell(cl):
+            if cl is not None:
+                nl = cl.shape[0]
+                return hstack([arange(2,nl+2).reshape(nl,1),cl[:,0]])
+
+        result = {}
+        if self.pycamb.cl_scalar_ is not None: result['scalar'] = add_ell(self.pycamb.cl_scalar_)
+        if self.pycamb.cl_lensed_ is not None: result['lensed'] = add_ell(self.pycamb.cl_lensed_)
+        if self.pycamb.cl_tensor_ is not None: result['tensor'] = add_ell(self.pycamb.cl_tensor_)
+        if self.pycamb.mpk_lin_ is not None: result['lin_mpk'] = self.pycamb.mpk_lin_[:,:,0,0].T
+        if self.pycamb.mpk_nonlin_ is not None: result['nonlin_mpk'] = self.pycamb.mpk_nonlin_[:,:,0,0].T
+        if self.pycamb.transfer_ is not None: result['trans'] = self.pycamb.transfer_[:,:,0].T
+        result['misc'] = {}
+        if self.pycamb.z_drag_ is not None: result['misc']['z_drag'] = float(self.pycamb.z_drag_)
+        
+        return result
+    

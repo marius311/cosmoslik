@@ -1,8 +1,6 @@
-from pywmap import pywmap
 from numpy import zeros
-from cosmoslik.plugins import Likelihood
+from cosmoslik.plugins import Likelihood, SubprocessExtension
 import os
-
 
 class wmap(Likelihood):
     """
@@ -74,6 +72,7 @@ class wmap(Likelihood):
         The TE range in ell to use in the likelihood
     
     """
+    
 
     def init(self,p):
         self.use = p.get(('wmap','use'),['TT','TE','EE','BB'])
@@ -82,7 +81,9 @@ class wmap(Likelihood):
         datadir = p.get(('wmap','data_dir'),None)
         if not datadir: raise Exception('Please specify the WMAP data directory in the parameter file with:\n[wmap]{\n  data_dir=/path/to/wmap/data\n}')
         elif not os.path.exists(datadir): raise Exception("The WMAP data directory you specified does not exist: '%s'"%datadir)
-        pywmap.wmapinit(ttmin,ttmax,temin,temax,os.path.normpath(datadir)+'/')
+
+        self.pywmap = SubprocessExtension('pywmap',globals())
+        self.pywmap.wmapinit(ttmin,ttmax,temin,temax,os.path.normpath(datadir)+'/')
     
     def get_required_models(self, p):
         return ['cl_%s'%x for x in self.use]
@@ -96,7 +97,6 @@ class wmap(Likelihood):
                 s = slice(0,min(len(m),len(cl)))
                 cl[s] = m[s]
     
-        liketerms = pywmap.wmaplnlike(cltt=cltt[2:],clte=clte[2:],clee=clee[2:],clbb=clbb[2:])
+        liketerms = self.pywmap.wmaplnlike(cltt=cltt[2:],clte=clte[2:],clee=clee[2:],clbb=clbb[2:])
         return sum(liketerms)
-    
     

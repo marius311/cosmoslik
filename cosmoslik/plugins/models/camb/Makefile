@@ -1,3 +1,3 @@
 default:
-	cd camb ; make
+	cd camb ; make pycamb
 

@@ -8,9 +8,7 @@ include ../../../../../Makefile.inc
 # set of flags just for this module you can set them by hand
 # here:
 # F90C = 
-# F90FLAGS =
-
-
+F90FLAGS += -fPIC
 
 
 

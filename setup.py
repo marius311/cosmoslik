@@ -11,7 +11,7 @@ try:
     has_sphinx = True
 except ImportError:
     has_sphinx = False
-    
+
 
 class sdist(_sdist):
     """

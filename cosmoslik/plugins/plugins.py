@@ -1,4 +1,6 @@
-import pkgutil, inspect, cosmoslik.plugins
+import pkgutil, inspect, sys, os, socket
+from multiprocessing import Process, Pipe, Queue
+import threading
 
 class CosmoSlikPlugin(object):
 
@@ -60,7 +62,85 @@ class Deriver(CosmoSlikPlugin):
         """ Add derived parameters. """
         raise NotImplementedError('Implement Deriver.add_derived')
     
+    
+class SubprocessExtension(object):
+    """
+    This imports a module and runs all of its code in a subprocess.
+    Its meant to be used by CosmoSlik plugins which load 
+    Python extension modules to facilitate clean exception handling. 
+    
+    If the plugin loads the extension module via ::
+    
+        from X import X
+        
+    then instead use ::
+    
+        X = SubprocessExtension('X',globals())
+    """
+    
+    def check_recv(self):
+        r = [None]
+        def recv(): r[0] = self._conn.recv()
+        th = threading.Thread(target=recv)
+        th.daemon=True
+        th.start()
 
+        while th.is_alive():
+            th.join(1e-3)
+            if not self._proc.is_alive(): 
+                raise Exception('Extension module died.\n%s'%self._subproc_stdout.read())
+        
+        if isinstance(r[0],Exception): raise r[0]
+        else: return r[0]
+    
+    def _flush_subproc_stdout(self):
+        try: self._subproc_stdout.read()
+        except IOError: pass
+        
+    def __init__(self, module_name, globals):
+        def subproc_code(conn, fd_out):
+            try:
+                #redirect output to a pipe back to the main process
+                for s in [sys.stderr,sys.stdout]: os.dup2(fd_out,s.fileno())
+
+                exec ('from %s import %s \n'
+                      'mod = %s')%(module_name,module_name,module_name) in globals, locals()
+                attrs = {k:(getattr(v,'__doc__',None),callable(v)) for k,v in vars(mod).items()}
+                conn.send(attrs)
+                while True:
+                    (attr, args, kwargs) = conn.recv()
+                    if attr in attrs and attrs[attr][1]: conn.send(getattr(mod,attr)(*args, **kwargs))
+                    else: conn.send(getattr(mod,attr))
+            except Exception, e: 
+                conn.send(e)
+                return
+    
+        self._conn, conn_child = Pipe()
+        out_socket_parent, out_socket_child = socket.socketpair()
+        out_socket_parent.settimeout(0)
+        self._subproc_stdout = out_socket_parent.makefile()
+        self._proc = Process(target=subproc_code,args=(conn_child,out_socket_child.fileno()))
+        self._proc.daemon = True
+        self._proc.start()
+        self._attrs = self.check_recv()
+        
+    def __getattribute__(self, attr):
+        super_getattr = super(SubprocessExtension,self).__getattribute__
+        try:
+            return super_getattr(attr)
+        except AttributeError:
+            if attr in self._attrs and self._attrs[attr][1]:
+                def wrap_method(*args, **kwargs):
+                    self._flush_subproc_stdout()
+                    self._conn.send((attr,args,kwargs))
+                    return self.check_recv()
+                wrap_method.__doc__ = self._attrs[attr][0]
+                return wrap_method
+            else:
+                super_getattr('_conn').send((attr,None,None))
+                return super_getattr('check_recv')()
+
+            
 def get_plugin(name):
     """
     Return a CosmoSlikPlugin class for plugin name. 
@@ -84,7 +164,7 @@ def get_all_plugins():
     is a subclass of CosmoSlikPlugin. If multiple references to
     X exist in the package, only the shallowest one is returned.  
     """
-    
+    import cosmoslik.plugins
     plugins = dict()
     for _,fullname,_ in  pkgutil.walk_packages(cosmoslik.plugins.__path__,cosmoslik.plugins.__name__+'.'):
         try:

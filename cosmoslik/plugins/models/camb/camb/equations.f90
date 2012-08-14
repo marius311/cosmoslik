@@ -81,20 +81,6 @@
      
         end function dtauda
 
-        function dsoundda(a)
-          use Precision
-          use ModelParams
-
-          implicit none
-          real(dl) dsoundda,dtauda,a,R,cs
-          external dtauda
-
-           R=3.0d4*a*CP%omegab*(CP%h0/100.0d0)**2
-           cs=1.0d0/sqrt(3*(1+R))
-           dsoundda=dtauda(a)*cs
-
-        end function dsoundda
-
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 !Gauge-dependent perturbation equations
