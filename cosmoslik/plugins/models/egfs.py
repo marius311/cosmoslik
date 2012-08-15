@@ -5,28 +5,25 @@ import os
 class egfs(Model):
     """
     
-    ====================================
-    Extra-galactic Foreground Base Class
-    ====================================
-    
-    This is a base class for extra-galactic foreground models.
-    This is *not* meant to be included in the parametr file via `models = ...`
-    
+    =======================================================
+    How to Create Your Own Extra-Galactic Foreground Models
+    =======================================================
+       
     To create your own extra-galactic foreground model, create a subclass
-    of `egfs` and override the function `get_egfs` to return a 
+    of ``cosmoslik.plugins.models.egfs.egfs`` and override the function ``get_egfs`` to return a 
     dictionary of extra-galactic foreground components. 
     
-    Also passed to the `get_egfs` function is information from the dataset, such as 
+    Also passed to the ``get_egfs`` function is information from the dataset, such as 
     
-    - `spectra` : e.g. `cl_TT' or 'cl_EE'
-    - `freq` : a dictionary for different effective frequencies, e.g. 
-      `{'dust': 153, 'radio': 151, 'tsz':150}
-    - `fluxcut` : the fluxcut in mJy
-    - `lmax` : the necessary maximum l
+    - ``spectra`` : e.g. `cl_TT` or `cl_EE`
+    - ``freq`` : a dictionary for different effective frequencies, e.g. 
+      ``{'dust': 153, 'radio': 151, 'tsz':150}``
+    - ``fluxcut`` : the fluxcut in mJy
+    - ``lmax`` : the necessary maximum l
     
     Here's an example egfs model ::
     
-        from cosmoslik.models.egfs import egfs
+        from cosmoslik.plugins.models.egfs import egfs
         
         class MyEgfs(egfs):
         

@@ -1,3 +1,5 @@
+import sys
+sys.path = ['..']+sys.path
 import cosmoslik.plugins, os
 from textwrap import dedent
 
