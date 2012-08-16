@@ -23,7 +23,7 @@ HEALPIXLD     = -L$(HEALPIXDIR)/lib -lhealpix -L$(FITSDIR) -l$(FITSLIB)
 CAMBOBJ       = constants.o utils.o $(EXTCAMBFILES) subroutines.o inifile.o $(POWERSPECTRUM).o $(RECOMBINATION).o \
 	$(REIONIZATION).o modules.o bessels.o $(EQUATIONS).o $(NONLINEAR).o lensing.o $(BISPECTRUM).o cmbmain.o camb.o
 
-default: camb
+default: pycamb
 
 all: camb $(CAMBLIB)
 
@@ -69,6 +69,6 @@ clean:
 pycamb: ../pycamb.so
 
 ../pycamb.so: $(CAMBLIB) inidriver_wrap.f90
-	f2py -c inidriver_wrap.f90 --f90flags=-cpp -m pycamb -L. -lcamb -lgomp --debug $(F2PYFLAGS)
+	f2py -c inidriver_wrap.f90 skip: get_mpk : --f90flags=-cpp -m pycamb -L. -lcamb -lgomp --debug $(F2PYFLAGS)
 	mv pycamb.so ..
 
