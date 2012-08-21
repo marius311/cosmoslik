@@ -1,9 +1,9 @@
 import os, sys, re
 from numpy import zeros, loadtxt, hstack, arange
-from cosmoslik.plugins import Model
+from ConfigParser import RawConfigParser
+from StringIO import StringIO
 
-try: import camb4py
-except ImportError: import local_camb4py as camb4py
+from cosmoslik.plugins import Model
 from cosmoslik.plugins.plugins import SubprocessExtension
 
 class camb(Model):
@@ -65,7 +65,7 @@ class camb(Model):
     def init(self,p):
         pcamb = p.get('camb',{})
         self.cambdir = os.path.abspath(os.path.join(os.path.dirname(__file__),'camb'))
-        self.cambdefs = camb4py.read_ini(pcamb.get('defaults',os.path.join(self.cambdir,'defaults.ini')))
+        self.cambdefs = read_ini(pcamb.get('defaults',os.path.join(self.cambdir,'defaults.ini')))
         self.cambdefs['HighLExtrapTemplate'] = os.path.abspath(os.path.join(self.cambdir,'HighLExtrapTemplate_lenspotentialCls.dat'))
         self.cambdefs.update(pcamb)
         self.camb = camb_f2py()
@@ -129,6 +129,14 @@ class camb(Model):
 
 
         return result
+
+def read_ini(ini):
+    """Read CAMB ini into dictionary"""
+    if os.path.exists(ini): ini = open(ini).read()
+    config = RawConfigParser()
+    config.optionxform=str
+    config.readfp(StringIO('[root]\n'+ini))
+    return dict(config.items('root'))
 
 
 def try_bool2str(value):
