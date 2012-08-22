@@ -14,6 +14,8 @@ class newdat(Likelihood):
         self.fluxcut = p['newdat','fluxcut']
         self.freqs = p['newdat','freqs']
         
+        fac = p.get(('newdat','factor'),1)
+        
         with open(p['newdat','file']) as f:
             name = remove_comments(f.next())
             nxs = map(int,remove_comments(f.next()).split())
@@ -27,12 +29,12 @@ class newdat(Likelihood):
             for x,nx in zip(self.xs,nxs):
                 if nx!=0:
                     if f.next().strip()!=x: raise Exception('Error reading newdat file. Expected bandpowers in order %s'%self.xs)
-                    self.bands[x] = array([fromstring(remove_comments(s),sep=' ') for s in islice(f,nx)])
+                    self.bands[x] = array([fromstring(remove_comments(s),sep=' ') for s in islice(f,nx)])*fac
                     for _ in islice(f,nx): pass #ignore correlation matrix
         
             self.lmax = max(chain(*[b[:,6] for b in self.bands.values()]))
 
-            self.cov = cho_factor(array([fromstring(remove_comments(s),sep=' ') for s in islice(f,sum(nxs))])[ix_(self.binslice,self.binslice)])                
+            self.cov = cho_factor(array([fromstring(remove_comments(s),sep=' ') for s in islice(f,sum(nxs))])[ix_(self.binslice,self.binslice)]*fac**2)            
                 
                 
     def get_required_models(self, p):
