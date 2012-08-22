@@ -12,11 +12,12 @@ class xfaster(Likelihood):
         self.X.xfaster_init(p['xfaster','file'])
         self.fluxcut = p['xfaster','fluxcut']
         self.freqs = p['xfaster','freqs']
+        self.fac = p.get(('xfaster','factor'),1)
         
     def lnl(self, p, model):
         
         def to_cl(dl): 
-            dl[2:]/=(lambda l: l*(l+1)/2/pi)(arange(2,len(dl)))
+            dl[2:]/=(self.fac*(lambda l: l*(l+1)/2/pi)(arange(2,len(dl))))
             return dl
         
         xf_model = {}
