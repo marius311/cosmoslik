@@ -68,8 +68,21 @@ class SectionDict(dict):
         return SectionDict(self)
 
 
+def load_ini(params, **kwargs):
+    """
+    Read and process a CosmoSlik ini file into a dictionary.
+    """
+    p=read_ini(params) if isinstance(params,str) else params
+    p.update(kwargs)
+    eval_values(p)
+    process_parameters(p,params)
+    return p
+
+
 def read_ini(f):   
-    """ Load parameters from ini """ 
+    """ 
+    Read a CosmoSlik ini file into a dictionary. 
+    """ 
     
     if isinstance(f,str): f=open(f)
     f = enumerate(f,1)

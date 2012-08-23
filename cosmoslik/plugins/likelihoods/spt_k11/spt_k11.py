@@ -25,12 +25,28 @@ class spt_k11(Likelihood):
         return dot(dcl,cho_solve(self.sigma, dcl))/2
 
 
-    def plot(self,ax,key,cl=None,p=None):
+    def plot(self,p, cl=None,
+             ax=None,fig=None,
+             residuals=False,
+             show_comps=True,
+             comps_kw={}):
+        
         if cl==None: cl = self.get_cl_model(p['_model'])
-        if key=='cl_TT':
+        
+        if ax is None:
+            if fig==None: 
+                from matplotlib.pyplot import figure
+                fig=figure()
+            ax=fig.add_subplot(111)
+            
+        if not residuals:
             ax.errorbar(self.ells,self.spec,yerr=diag(self.sigma[0]),fmt='.',label='SPT K11')
             ax.plot(self.ells,cl)
-        elif key=='delta_cl_TT':
+            if show_comps: 
+                ax.plot(p['_model']['cl_TT'],c='b')
+                p['_model']['egfs']('cl_TT', lmax=self.lmax, freqs=(self.freq,self.freq), fluxcut=self.fluxcut, plot=True, ax=ax, **comps_kw)
+
+        else:
             ax.errorbar(self.ells,self.spec-cl,yerr=diag(self.sigma[0]),fmt='.',label='SPT K11')
             ax.plot([self.ells[0],self.ells[-1]],[0]*2)
 

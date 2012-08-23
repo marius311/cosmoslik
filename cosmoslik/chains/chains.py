@@ -15,6 +15,7 @@ Contains utilities to:
 import os, sys, re
 from numpy import *
 from itertools import takewhile
+from cosmoslik.params import load_ini
 
 __all__ = ['Chain','Chains',
            'like1d','like2d','likegrid',
@@ -297,36 +298,41 @@ def load_chain(path,paramnames=None):
     then returns a Chains object which is just a list of Chain objects 
     for each chain. 
     """
-    def load_one_chain(path):
-        if os.path.isdir(path):
-            if paramnames!=None: raise Exception("Can't specify custom parameter names if loading chain from a directory.")
-            chain = {}
-            for k in os.listdir(path):
-                try: chain[k]=loadtxt(os.path.join(path,k),usecols=[-1])
-                except: pass
-            return Chain(chain)
-        else:
-            names = None
-            if paramnames==None:
-                pnfiles = [os.path.join(os.path.dirname(path),f) for f in os.listdir(os.path.dirname(path)) if f.endswith('.paramnames') and os.path.basename(path).startswith(f[:-len('.paramnames')])]
-                if len(pnfiles)>1: raise Exception('Found multiple paramnames files for this chain; %s'%pnfiles)
-            
-            if paramnames or pnfiles:
-                with open(paramnames or pnfiles[0]) as f:
-                    names = ['weight','lnl']+[line.split()[0] for line in f]
-                    
-            with open(path) as f:
-                if names==None: names = re.sub("#","",f.readline()).split()
-                try: data = loadtxt(f).T
-                except: data = [array([])]*len(names)
-                
-            return Chain(zip(names,data))
     
-    path = os.path.abspath(path)
-    dir = os.path.dirname(path)
-    files = [os.path.join(dir,f) for f in os.listdir('.' if dir=='' else dir) if re.match(os.path.basename(path)+'_[0-9]+',f) or f==os.path.basename(path)]
-    if len(files)==1: return load_one_chain(files[0])
-    elif len(files)>1: return Chains(filter(lambda c: c, (load_one_chain(f) for f in files)))
-    else: raise IOError("File not found: "+path) 
+    if path.endswith('.ini'): 
+        p = load_ini(path)
+        return load_chain(p['output_file'])
+    else:
+        def load_one_chain(path):
+            if os.path.isdir(path):
+                if paramnames!=None: raise Exception("Can't specify custom parameter names if loading chain from a directory.")
+                chain = {}
+                for k in os.listdir(path):
+                    try: chain[k]=loadtxt(os.path.join(path,k),usecols=[-1])
+                    except: pass
+                return Chain(chain)
+            else:
+                names = None
+                if paramnames==None:
+                    pnfiles = [os.path.join(os.path.dirname(path),f) for f in os.listdir(os.path.dirname(path)) if f.endswith('.paramnames') and os.path.basename(path).startswith(f[:-len('.paramnames')])]
+                    if len(pnfiles)>1: raise Exception('Found multiple paramnames files for this chain; %s'%pnfiles)
+                
+                if paramnames or pnfiles:
+                    with open(paramnames or pnfiles[0]) as f:
+                        names = ['weight','lnl']+[line.split()[0] for line in f]
+                        
+                with open(path) as f:
+                    if names==None: names = re.sub("#","",f.readline()).split()
+                    try: data = loadtxt(f).T
+                    except: data = [array([])]*len(names)
+                    
+                return Chain(zip(names,data))
+        
+        path = os.path.abspath(path)
+        dir = os.path.dirname(path)
+        files = [os.path.join(dir,f) for f in os.listdir('.' if dir=='' else dir) if re.match(os.path.basename(path)+'_[0-9]+',f) or f==os.path.basename(path)]
+        if len(files)==1: return load_one_chain(files[0])
+        elif len(files)>1: return Chains(filter(lambda c: c, (load_one_chain(f) for f in files)))
+        else: raise IOError("File not found: "+path) 
 
 

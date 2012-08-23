@@ -27,10 +27,7 @@ def lnl(x,p):
 
 
 def sample(paramfile,**kwargs):
-    p=params.read_ini(paramfile) if isinstance(paramfile,str) else paramfile
-    p.update(kwargs)
-    params.eval_values(p)
-    params.process_parameters(p,paramfile)
+    p=params.load_ini(paramfile,**kwargs)
 
     #Import the various modules
     for k in ['likelihoods','models','derivers','samplers']:
@@ -126,7 +123,7 @@ def initialize_covariance(params):
 
 
 
-def build(module=None):
+def build(module=None, args=None, message=('built','build')):
 
     if not os.path.exists(os.path.join(os.path.dirname(__file__),'..','Makefile.inc')):
         raise Exception(("Create a 'Makefile.inc' before building plugins.\n"
@@ -139,10 +136,9 @@ def build(module=None):
         filenames = os.listdir(dirname)
         build_command = None
         if 'setup.py' in filenames:
-            build_command = 'cd %s && python setup.py build'%dirname
+            build_command = 'cd %s && python setup.py '%dirname + (args or 'build')
         elif 'Makefile' in filenames:
-            build_command = 'cd %s && make'%dirname
-        
+            build_command = 'cd %s && make '%dirname + (args or '')
         if build_command is not None: 
             print build_command
             return os.system(build_command)==0
@@ -168,19 +164,19 @@ def build(module=None):
         
         if any(outcomes.values()):
             sys.stdout.write('\033[92m')
-            print "Successfully built:"
+            print "Successfully %s:"%message[0]
             for m,o in sorted(outcomes.items()): 
                 if o: print "  %s"%m
             sys.stdout.write('\033[0m')
         if not all(outcomes.values()):
             sys.stdout.write('\033[93m')
-            print "Failed to build (ignore if not used):"
+            print "Failed to %s (ignore if not used):"%message[1]
             for m,o in sorted(outcomes.items()): 
                 if not o: print "  %s"%m
             sys.stdout.write('\033[0m')
-            print ("To build a single module at a time and see error messages,\n"
+            print ("To %s a single module at a time and see error messages,\n"
                    "use './cosmoslik.py --build <module>' where <module> is the\n"
-                   "name of a module as it appears above.")
+                   "name of a module as it appears above.")%message[1]
 
         
     else:
