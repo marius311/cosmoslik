@@ -101,7 +101,7 @@ class SubprocessExtension(object):
         def subproc_code(conn, fd_out):
             try:
                 #redirect output to a pipe back to the main process
-                for s in [sys.stderr,sys.stdout]: os.dup2(fd_out,s.fileno())
+                for s in [1,2]: os.dup2(fd_out,s)
 
                 exec ('from %s import %s \n'
                       'mod = %s')%(module_name,module_name,module_name) in globals, locals()

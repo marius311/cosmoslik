@@ -16,8 +16,10 @@ Contents:
 
     Installing <install>
     The Ini File <params>
-    Create your own plugins <create>
-    Create your own extra-galactic foregrounds models <plugins/models.egfs>
+    Chains <chains>
+    Create plugins <create>
+    Create extra-galactic foregrounds models <plugins/models.egfs>
+    
     
 .. toctree::
     :maxdepth: 3

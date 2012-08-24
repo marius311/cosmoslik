@@ -105,15 +105,24 @@ class Chain(dict):
         plot(cumsum(self['weight']),self[param])
         
     def like1d(self,p,**kwargs): 
-        """Plots 1D likelihood contours for a parameter."""
+        """
+        Plots 1D likelihood contours for a parameter.
+        See :func:`~cosmoslik.chains.like1d`
+        """
         like1d(self[p],weights=self["weight"],**kwargs)
         
     def like2d(self,p1,p2,**kwargs): 
-        """Plots 2D likelihood contours for a pair of parameters."""
+        """
+        Plots 2D likelihood contours for a pair of parameters.
+        See :func:`~cosmoslik.chains.like2d`
+        """
         like2d(self[p1], self[p2], weights=self["weight"], **kwargs)
         
     def likegrid(self,**kwargs):
-        """Plot several 2d likelihood contours."""
+        """
+        Make a grid (aka "triangle plot") of 1- and 2-d likelihood contours. 
+        See :func:`~cosmoslik.chains.likegrid`
+        """
         if 'color' in kwargs: kwargs['colors']=[kwargs.pop('color')]
         likegrid(self,**kwargs)
 
@@ -286,17 +295,19 @@ def load_chain(path,paramnames=None):
     """
     Load a chain from a file or files in a variety of different formats.
     
-    If path is a file, return a Chain object. The names of the parameters
+    If ``path`` is a CosmoSlik ini, the read the ``output_file`` key from the 
+    ini and load that chain.
+    
+    If ``path`` is a file, return a :class:`~cosmoslik.chains.Chain` object. The names of the parameters
     are expected either as a whitespace-separated comment on the first line of 
     the file (CosmoSlik style) or in a separate file 
     called <path>.paramnames (CosmoMC style). 
     
-    If path is a directory, assumes it contains one file for each parameter (WMAP style)
+    If ``path`` is a directory, assumes it contains one file for each parameter (WMAP style)
     and gets the parameter name from the file name. 
     
-    If path is a prefix such that there exists path_1, path_2, etc... 
-    then returns a Chains object which is just a list of Chain objects 
-    for each chain. 
+    If ``path`` is a prefix such that there exists <path>_1, <path>_2, etc... 
+    then returns a :class:`~cosmoslik.chains.Chains` object which is a list of chains.
     """
     
     if path.endswith('.ini'): 

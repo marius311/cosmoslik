@@ -27,7 +27,7 @@ class egfs(Model):
         
         class MyEgfs(egfs):
         
-            def get(self, p, spectra, freq, fluxcut, lmax, **kwargs):
+            def get_egfs(self, p, spectra, freq, fluxcut, lmax, **kwargs):
                 return {'single_component': p['amp'] * ones(lmax)}
     
     """

@@ -33,13 +33,10 @@ class spt_r11(Likelihood):
     Parameters
     ==========
     
-    [spt_r11].a90
-    -------------
-    [spt_r11].a150
-    --------------
-    [spt_r11].a220
-    --------------
-    
+    .. describe:: [spt_r11].a90
+    .. describe:: [spt_r11].a150
+    .. describe:: [spt_r11].a220
+        
         These are the calibration factors at each frequency, defined so that 
         they multiply the theory spectrum. Calibration priors
         are included in the likelihood and are 1.75%, 1.6%, and 2.4% respectively.
