@@ -5,12 +5,14 @@ use wmap_likelihood_7yr
 use WMAP_OPTIONS
 use WMAP_UTIL
 
+implicit none
+
 logical :: pywmap_initalized
 
 contains
 
     subroutine WMAPInit(tt_min,tt_max,te_min,te_max,data_dir)
-        integer :: ttmin, ttmax, temin, temax
+        integer :: tt_min, tt_max, te_min, te_max
 
 		character(len=*) :: data_dir
         WMAP_data_dir = trim(data_dir)
@@ -30,6 +32,7 @@ contains
       real(8), dimension(10) :: WMAPLnLike
       real(8), dimension(num_WMAP) :: like
       real(8), dimension(2:lmax) :: cltt,clte,clee,clbb
+      integer lmax
 
       WMAPLnLike = 1e30
       if (lmax < ttmax) then
