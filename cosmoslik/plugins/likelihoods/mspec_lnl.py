@@ -32,8 +32,6 @@ class mspec_lnl(Likelihood):
         self.eff_fr = self.mp['eff_fr']
         self.lmax = max([u for (_,u) in self.lrange.values()])
         
-
-        
     def process_signal(self,s):
         """All the thing we do to the signal after loading it in."""
         if 'cleaning' in self.mp: s=s.lincombo(self.mp['cleaning'])
@@ -47,7 +45,11 @@ class mspec_lnl(Likelihood):
         """
         if model is None: model = p['_model']
         model_sig = M.PowerSpectra(ells=arange(self.lmax))
-        for fr1,fr2 in self.signal.get_spectra():
+        if 'cleaning' in self.mp: 
+            processed_spectra = M.utils.pairs({fr for coeffs in self.mp['cleaning'].values() for fr,w in coeffs if w!=0})
+        else:
+            processed_spectra = self.signal.get_spectra()
+        for fr1,fr2 in processed_spectra:
             cl = model['cl_TT'][:self.lmax].copy()
             cl += model['egfs']('cl_TT',
                                fluxcut=min(self.fluxcut[fr1],self.fluxcut[fr2]),
@@ -63,9 +65,12 @@ class mspec_lnl(Likelihood):
              cl=None, 
              p=None, 
              show_comps=False,
+             show_model=True,
              yscale='log',
              ylim=None,
-             residuals=False):
+             residuals=False,
+             data_color='k',
+             model_color='k'):
         
         if cl==None: cl=self.get_cl_model(p, p['_model'])
         if fig==None: 
@@ -85,11 +90,11 @@ class mspec_lnl(Likelihood):
             ax=fig.add_subplot(n,n,n*j+i+1)
             lrange = self.lrange[(fri,frj)]
             if residuals:
-                slice_signal(self.processed_signal,lrange).diffed(slice_signal(cl,lrange)[fri,frj]).plot(ax=ax,which=[(fri,frj)],c='k')
-                ax.plot([cl.ells[0],cl.ells[-1]],[0]*2)
+                slice_signal(self.processed_signal,lrange).diffed(slice_signal(cl,lrange)[fri,frj]).plot(ax=ax,which=[(fri,frj)],c=data_color)
             else:
-                slice_signal(self.processed_signal,lrange).plot(ax=ax,which=[(fri,frj)],c='k')
-                cl.plot(ax=ax,which=[(fri,frj)],c='k')
+                slice_signal(self.processed_signal,lrange).plot(ax=ax,which=[(fri,frj)],c=data_color)
+                if show_model: 
+                    cl.plot(ax=ax,which=[(fri,frj)],c=model_color)
                 if show_comps:
                     ax.plot(p['_model']['cl_TT'],c='b')
                     p['_model']['egfs']('cl_TT',
