@@ -8,6 +8,7 @@ Likelihoods
    SPT R11 <plugins/likelihoods.spt_r11>
    SPT K11 <plugins/likelihoods.spt_k11>
    BAO <plugins/likelihoods.bao>
+   PICO <plugins/likelihoods.pico>
    
 
    
