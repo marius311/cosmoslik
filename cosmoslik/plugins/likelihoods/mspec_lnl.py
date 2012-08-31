@@ -1,5 +1,5 @@
 import mspec as M
-from numpy import dot, arange, diag
+from numpy import dot, arange, diag, product
 from scipy.linalg import cho_solve, cho_factor, cholesky
 from cosmoslik.plugins import Likelihood
 from itertools import combinations_with_replacement
@@ -15,28 +15,45 @@ class mspec_lnl(Likelihood):
         
         self.mp = M.read_Mspec_ini(p['mspec'])
         
-        self.signal = M.load_signal(self.mp)#.dl()
+        self.signal = M.load_signal(self.mp)
         
-        self.processed_signal = self.process_signal(self.signal)
+        if 'rescale' in p['mspec']: self.signal = self.signal.rescaled(p['mspec'].get('rescale',1))
+        if p['mspec'].get('to_dl'): self.signal = self.signal.dl()
+        
+        processed_signal = self.process_signal(p, self.signal, do_calib=False)
 
         self.lrange = self.mp['lrange']
         if isinstance(self.lrange,tuple): 
-            self.lrange = {k:self.lrange for k in self.processed_signal.get_spectra()}
+            self.lrange = {k:self.lrange for k in processed_signal.get_spectra()}
         
-        (self.signal_matrix_spec, self.signal_matrix_cov) = self.processed_signal.get_as_matrix(lrange=self.lrange)
+        self.signal_matrix_cov = processed_signal.get_as_matrix(lrange=self.lrange)[1]
         
         self.signal_matrix_cov = cholesky(self.signal_matrix_cov), False
-        self.signal_matrix_spec = self.signal_matrix_spec[:,1]
         
         self.fluxcut = self.mp['fluxcut']
         self.eff_fr = self.mp['eff_fr']
         self.lmax = max([u for (_,u) in self.lrange.values()])
         
-    def process_signal(self,s):
-        """All the thing we do to the signal after loading it in."""
-        if 'cleaning' in self.mp: s=s.lincombo(self.mp['cleaning'])
-        s = s.rescaled(self.mp.get('rescale',1))
-        return s
+        
+    def process_signal(self, p, sig=None, do_calib=True, keep_cov=True):
+        """Get processed signal, appyling calibration, doing linear combination, etc.."""
+        
+        if sig is None: sig=self.signal
+        
+        sig = M.PowerSpectra(ells=sig.ells,
+                             spectra=sig.spectra.copy(),
+                             cov=(sig.cov.copy() if keep_cov else None),
+                             binning=sig.binning)
+        
+        if do_calib:
+            for (m1,m2) in sig.get_spectra():
+                sig[m1,m2] = sig[m1,m2] * product([p['mspec'].get('calib',{}).get(m,1) for m in [m1,m2]])
+        
+        if 'cleaning' in p['mspec']: sig=sig.lincombo(p['mspec']['cleaning'])
+
+        return sig
+
+        
         
     def get_cl_model(self,p,model=None):
         """ 
@@ -57,7 +74,7 @@ class mspec_lnl(Likelihood):
                                lmax=self.lmax)
             model_sig[(fr1,fr2)] = model_sig[(fr2,fr1)] = cl
 
-        return self.process_signal(model_sig.binned(self.mp['binning']))
+        return self.process_signal(p,model_sig.binned(self.mp['binning']),do_calib=False)
 
 
     def plot(self,
@@ -77,7 +94,9 @@ class mspec_lnl(Likelihood):
             from matplotlib.pyplot import figure
             fig=figure()
             
-        n=len(self.processed_signal.get_maps())
+        processed_signal = self.process_signal(p)
+        
+        n=len(processed_signal.get_maps())
 
         fig.set_size_inches(6*n,6*n/1.6)
         fig.subplots_adjust(hspace=0,wspace=0)
@@ -86,13 +105,13 @@ class mspec_lnl(Likelihood):
             """Slice a signal according to an lrange"""
             return sig.sliced(sig.binning(slice(*sl)))
             
-        for ((i,fri),(j,frj)) in combinations_with_replacement(enumerate(self.processed_signal.get_maps()),2):
+        for ((i,fri),(j,frj)) in combinations_with_replacement(enumerate(processed_signal.get_maps()),2):
             ax=fig.add_subplot(n,n,n*j+i+1)
             lrange = self.lrange[(fri,frj)]
             if residuals:
-                slice_signal(self.processed_signal,lrange).diffed(slice_signal(cl,lrange)[fri,frj]).plot(ax=ax,which=[(fri,frj)],c=data_color)
+                slice_signal(processed_signal,lrange).diffed(slice_signal(cl,lrange)[fri,frj]).plot(ax=ax,which=[(fri,frj)],c=data_color)
             else:
-                slice_signal(self.processed_signal,lrange).plot(ax=ax,which=[(fri,frj)],c=data_color)
+                slice_signal(processed_signal,lrange).plot(ax=ax,which=[(fri,frj)],c=data_color)
                 if show_model: 
                     cl.plot(ax=ax,which=[(fri,frj)],c=model_color)
                 if show_comps:
@@ -122,9 +141,9 @@ class mspec_lnl(Likelihood):
     def lnl(self,p,model):
         
         cl_model = self.get_cl_model(p, model)
-        
         cl_model_matrix = cl_model.get_as_matrix(lrange=self.lrange).spec[:,1]
+        signal_matrix_spec = self.process_signal(p, self.signal, keep_cov=False).get_as_matrix(lrange=self.lrange)[0][:,1]
         
         #Compute the likelihood  
-        dcl = cl_model_matrix - self.signal_matrix_spec
+        dcl = cl_model_matrix - signal_matrix_spec
         return dot(dcl,cho_solve(self.signal_matrix_cov,dcl))/2
