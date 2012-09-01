@@ -45,12 +45,17 @@ class mspec_lnl(Likelihood):
                              cov=(sig.cov.copy() if keep_cov else None),
                              binning=sig.binning)
         
-        if do_calib:
-            for (m1,m2) in sig.get_spectra():
-                sig[m1,m2] = sig[m1,m2] * product([p['mspec'].get('calib',{}).get(m,1) for m in [m1,m2]])
+        def calib(sig):
+            if do_calib:
+                for (m1,m2) in sig.get_spectra():
+                    sig[m1,m2] = sig[m1,m2] * product([p['mspec'].get('calib',{}).get(m,1) for m in [m1,m2]])
         
-        if 'cleaning' in p['mspec']: sig=sig.lincombo(p['mspec']['cleaning'])
-
+         
+        calib(sig) #apply calibration to frequency PS
+        if 'cleaning' in p['mspec']: 
+            sig=sig.lincombo(p['mspec']['cleaning'])
+            calib(sig) #apply calibration to cleaned PS
+            
         return sig
 
         
