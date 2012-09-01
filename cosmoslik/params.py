@@ -126,7 +126,6 @@ def eval_values(p):
         else:
             try: 
                 v = literal_eval(v)
-                if isinstance(v, list): v=array(v)
                 p[k]=v
             except: pass
         
