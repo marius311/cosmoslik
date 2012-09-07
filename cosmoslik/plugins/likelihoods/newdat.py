@@ -5,6 +5,10 @@ from scipy.linalg import cho_factor, cho_solve
 import re
 
 class newdat(Likelihood):
+    """
+    
+    
+    """
     
     xs = ['TT','EE','BB','EB','TE','TB']
     
@@ -29,7 +33,8 @@ class newdat(Likelihood):
             for x,nx in zip(self.xs,nxs):
                 if nx!=0:
                     if f.next().strip()!=x: raise Exception('Error reading newdat file. Expected bandpowers in order %s'%self.xs)
-                    self.bands[x] = array([fromstring(remove_comments(s),sep=' ') for s in islice(f,nx)])*fac
+                    self.bands[x] = array([fromstring(remove_comments(s),sep=' ') for s in islice(f,nx)])
+                    self.bands[x][:,1:5] *= fac
                     for _ in islice(f,nx): pass #ignore correlation matrix
         
             self.lmax = max(chain(*[b[:,6] for b in self.bands.values()]))
@@ -39,9 +44,55 @@ class newdat(Likelihood):
                 
     def get_required_models(self, p):
         return ['cl_%s'%x for x in self.bands.keys()]
+            
+    
+    def plot(self,
+             ax=None,
+             cl=None, 
+             p=None, 
+             #show_comps=False,
+             show_data=True,
+             show_model=True,
+             show_comps=False,
+             residuals=False,
+             data_color='k',
+             model_color='k'):
+        
+        if cl is None: cl=self.get_cl_model(p, p['_model'])
+        if ax is None: 
+            from matplotlib.pyplot import figure
+            ax=figure().add_subplot(111)
+            
+        cl_model = self.get_cl_model(p)
+            
+        ells = [mean(lrange) for lrange in self.bands['TT'][self.binrange['TT'],[5,6]]]
+        if residuals:
+            if show_data: ax.errorbar(ells,self.bands['TT'][self.binrange['TT'],1] - cl_model['TT'][self.binrange['TT']],
+                                      yerr=self.bands['TT'][self.binrange['TT'],[3,2]].T,
+                                      fmt='.',
+                                      color=data_color)
+        else:
+            if show_data: 
+                ax.errorbar(ells,self.bands['TT'][self.binrange['TT'],1],
+                            yerr=self.bands['TT'][self.binrange['TT'],[3,2]].T,
+                            color=data_color,
+                            fmt='.')
+            if show_model: 
+                ax.plot(ells,cl_model['TT'][self.binrange['TT']],color=model_color)
                 
-                
-    def lnl(self, p, model):
+            if show_comps:
+                ax.plot(p['_model']['cl_TT'],label='CMB')
+                p['_model']['egfs']('cl_TT',
+                                    fluxcut=min(self.fluxcut,self.fluxcut),
+                                    freqs=self.freqs,
+                                    lmax=self.lmax,
+                                    plot=True,
+                                    ax=ax)
+            
+        return ax
+
+    def get_cl_model(self, p, model=None):
+        if model is None: model=p['_model']
         
         cl_model = {}
         for x in self.xs:
@@ -49,19 +100,18 @@ class newdat(Likelihood):
                 cl_model[x] = model['cl_%s'%x]
                 if len(cl_model[x]) < self.lmax: raise Exception('Newdat likelihood needs cl_%s to lmax=%i'%(x,self.lmax))
                 cl_model[x] += model['egfs']('cl_%s'%x, fluxcut=self.fluxcut, freqs=self.freqs, lmax=len(cl_model[x]))
+                
+                
+        cl_model = {x:array([mean(cl_model[x][lmin:lmax+1]) for (lmin,lmax) in self.bands[x][:,[5,6]]]) for x in self.xs if x in self.bands}
+
+        return cl_model
+
+
+    def lnl(self, p, model):
         
-        if p.get('diagnostic',False):
-            from matplotlib.pyplot import ion, draw, plot, errorbar, cla, yscale, ylim
-            ion()
-            cla()
-            ells = [mean(lrange) for lrange in self.bands['TT'][self.binrange['TT'],[5,6]]]
-            errorbar(ells,self.bands['TT'][self.binrange['TT'],1],yerr=self.bands['TT'][self.binrange['TT'],[3,2]].T,fmt='.')
-            plot(ells,[mean(cl_model['TT'][lmin:lmax+1]) for (lmin,lmax) in self.bands['TT'][self.binrange['TT'],[5,6]]])
-            yscale('log')
-            ylim(10,6e3)
-            draw()
+        cl_model = self.get_cl_model(p, model)
+        dcl = hstack([cl_model[x]-self.bands[x][:,1] for x in self.xs if x in self.bands])[self.binslice]
         
-        dcl = hstack([array([mean(cl_model[x][lmin:lmax+1]) for (lmin,lmax) in self.bands[x][:,[5,6]]])-self.bands[x][:,1] for x in self.xs if x in self.bands])[self.binslice]
         return dot(dcl,cho_solve(self.cov,dcl))/2
         
         
