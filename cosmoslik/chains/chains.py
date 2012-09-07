@@ -201,7 +201,9 @@ def likegrid(chains, params=None,
              labels=None,
              fig=None,
              size=2,
-             legend_loc=None):
+             legend_loc=None,
+             param_name_mapping=None,
+             param_label_size=None):
     """
     Make a grid (aka "triangle plot") of 1- and 2-d likelihood contours. 
     
@@ -230,6 +232,7 @@ def likegrid(chains, params=None,
     fig = figure(0) if fig is None else (figure(fig) if isinstance(fig,int) else fig)
     if type(chains)!=list: chains=[chains]
     if params==None: params = sorted(reduce(lambda x,y: set(x)&set(y), [c.params() for c in chains]))
+    if param_name_mapping is None: param_name_mapping = {}
     if size is not None: fig.set_size_inches(*([size*len(params)]*2))
     colors=colors[:len(chains)]
     fig.subplots_adjust(hspace=0,wspace=0)
@@ -256,13 +259,13 @@ def likegrid(chains, params=None,
                     ax.set_yticks(ticks[j])
                         
                 if i==0: 
-                    ax.set_ylabel(p2)
+                    ax.set_ylabel(param_name_mapping.get(p2,p2),size=param_label_size)
                     ax.set_yticklabels(['%.3g'%t for t in ticks[j]])
                 else: 
                     ax.set_yticklabels([])
                 
                 if j==n-1: 
-                    ax.set_xlabel(p1)
+                    ax.set_xlabel(param_name_mapping.get(p1,p1),size=param_label_size)
                     ax.set_xticklabels(['%.3g'%t for t in ticks[i]])
                 else: 
                     ax.set_xticklabels([])
