@@ -1,8 +1,8 @@
 import mspec as M
-from numpy import dot, arange, diag, product
-from scipy.linalg import cho_solve, cho_factor, cholesky
+from mspec.utils import pairs
+from numpy import dot, arange, product, zeros
+from scipy.linalg import cho_solve, cholesky
 from cosmoslik.plugins import Likelihood
-from itertools import combinations_with_replacement
 
 class mspec_lnl(Likelihood):
     
@@ -19,6 +19,10 @@ class mspec_lnl(Likelihood):
         
         if 'rescale' in p['mspec']: self.signal = self.signal.rescaled(p['mspec'].get('rescale',1))
         if p['mspec'].get('to_dl'): self.signal = self.signal.dl()
+        
+        self.cleaning = self.mp['cleaning'] if 'cleaning' in self.mp else {m:[(m,1)] for m in self.signal.get_maps()}
+        
+        self.per_freq_egfs = M.SymmetricTensorDict(self.mp.get('per_freq_egfs',{}))
         
         processed_signal = self.process_signal(p, self.signal, do_calib=False)
 
@@ -52,39 +56,50 @@ class mspec_lnl(Likelihood):
         
          
         calib(sig) #apply calibration to frequency PS
-        if 'cleaning' in p['mspec']: 
-            sig=sig.lincombo(p['mspec']['cleaning'])
-            calib(sig) #apply calibration to cleaned PS
+        sig=sig.lincombo(self.cleaning)
+        calib(sig) #apply calibration to cleaned PS
             
         return sig
 
-        
-        
-    def get_cl_model(self,p,model=None):
+    def get_cl_model(self,p,
+                     model=None,
+                     get_cmb=True,
+                     get_egfs=True,
+                     egfs_kwargs=None):
         """ 
         Build an Mspec PowerSpectra object which holds CMB + foreground C_ell's
         for all the required frequencies 
         """
         if model is None: model = p['_model']
         model_sig = M.PowerSpectra(ells=arange(self.lmax))
-        if 'cleaning' in self.mp: 
-            processed_spectra = M.utils.pairs({fr for coeffs in self.mp['cleaning'].values() for fr,w in coeffs if w!=0})
-        else:
-            processed_spectra = self.signal.get_spectra()
-        for fr1,fr2 in processed_spectra:
-            cl = model['cl_TT'][:self.lmax].copy()
-            cl += model['egfs']('cl_TT',
-                               fluxcut=min(self.fluxcut[fr1],self.fluxcut[fr2]),
-                               freqs=(self.eff_fr[fr1],self.eff_fr[fr2]),
-                               lmax=self.lmax)
-            model_sig[(fr1,fr2)] = model_sig[(fr2,fr1)] = cl
+            
+        in_spectra = pairs({m for coeffs in self.cleaning.values() for m,_ in coeffs})
+        out_spectra = pairs(self.cleaning.keys())
+            
+        def add_in_components(model_sig,spectra, default_egfs=True, get_cmb=True):
+            for fr1,fr2 in spectra:
+                cl = model_sig.spectra.setdefault((fr1,fr2),zeros(self.lmax))
+                if get_cmb: 
+                    cl += model['cl_TT'][:self.lmax].copy()
+                if get_egfs and (default_egfs or (fr1,fr2) in self.per_freq_egfs):
+                    cl += model['egfs']('cl_TT',
+                                        p_egfs = p[self.per_freq_egfs[(fr1,fr2)]] if (fr1,fr2) in self.per_freq_egfs else None,
+                                        fluxcut=min(self.fluxcut[fr1],self.fluxcut[fr2]),
+                                        freqs=(self.eff_fr[fr1],self.eff_fr[fr2]),
+                                        lmax=self.lmax)
+            return model_sig
 
-        return self.process_signal(p,model_sig.binned(self.mp['binning']),do_calib=False)
+        if self.per_freq_egfs:
+            model_sig = add_in_components(model_sig, in_spectra, get_cmb=get_cmb, default_egfs=False)
+            model_sig = self.process_signal(p,model_sig,do_calib=False)
+            model_sig = add_in_components(model_sig, out_spectra, get_cmb=False, default_egfs=False)
+            return model_sig.binned(self.mp['binning'])
+        else:
+            return self.process_signal(p,add_in_components(model_sig, in_spectra, get_cmb=get_cmb).binned(self.mp['binning']),do_calib=False)
 
 
     def plot(self,
              fig=None,
-             cl=None, 
              p=None, 
              show_comps=False,
              show_model=True,
@@ -94,7 +109,11 @@ class mspec_lnl(Likelihood):
              data_color='k',
              model_color='k'):
         
-        if cl==None: cl=self.get_cl_model(p, p['_model'])
+        model_total = self.get_cl_model(p)
+        if show_comps: 
+            model_cmb = self.get_cl_model(p, get_cmb=True, get_egfs=False)
+            model_egfs = self.get_cl_model(p, get_cmb=False, get_egfs=True)
+        
         if fig==None: 
             from matplotlib.pyplot import figure
             fig=figure()
@@ -110,23 +129,18 @@ class mspec_lnl(Likelihood):
             """Slice a signal according to an lrange"""
             return sig.sliced(sig.binning(slice(*sl)))
             
-        for ((i,fri),(j,frj)) in combinations_with_replacement(enumerate(processed_signal.get_maps()),2):
+        for ((i,fri),(j,frj)) in pairs(enumerate(processed_signal.get_maps())):
             ax=fig.add_subplot(n,n,n*j+i+1)
             lrange = self.lrange[(fri,frj)]
             if residuals:
-                slice_signal(processed_signal,lrange).diffed(slice_signal(cl,lrange)[fri,frj]).plot(ax=ax,which=[(fri,frj)],c=data_color)
+                slice_signal(processed_signal,lrange).diffed(slice_signal(model_total,lrange)[fri,frj]).plot(ax=ax,which=[(fri,frj)],c=data_color)
             else:
                 slice_signal(processed_signal,lrange).plot(ax=ax,which=[(fri,frj)],c=data_color)
                 if show_model: 
-                    cl.plot(ax=ax,which=[(fri,frj)],c=model_color)
+                    slice_signal(model_total,lrange).plot(ax=ax,which=[(fri,frj)],c=model_color)
                 if show_comps:
-                    ax.plot(p['_model']['cl_TT'],c='b')
-                    p['_model']['egfs']('cl_TT',
-                                        fluxcut=min(self.fluxcut[fri],self.fluxcut[frj]),
-                                        freqs=(self.eff_fr[fri],self.eff_fr[frj]),
-                                        lmax=self.lmax,
-                                        plot=True,
-                                        ax=ax)
+                    slice_signal(model_cmb,lrange).plot(ax=ax,which=[(fri,frj)],c='b')
+                    slice_signal(model_egfs,lrange).plot(ax=ax,which=[(fri,frj)],c='orange')
                     
                 ax.set_ylim(*(ylim or ((0,6999) if yscale=='linear' else (11,9999))))
                 ax.set_yscale(yscale)

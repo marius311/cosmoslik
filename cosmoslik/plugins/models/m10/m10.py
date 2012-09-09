@@ -12,7 +12,7 @@ class m10(Model):
         
         pm10 = p.get('m10',{})
         
-        def get_m10_egfs(spectra, fluxcut, freqs, lmax):
+        def get_m10_egfs(spectra, fluxcut, freqs, lmax, **kwargs):
             if spectra != 'cl_TT': return zeros(lmax)
             
             fr1, fr2 = freqs
