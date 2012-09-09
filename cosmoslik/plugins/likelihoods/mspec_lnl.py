@@ -34,8 +34,8 @@ class mspec_lnl(Likelihood):
         
         self.signal_matrix_cov = cholesky(self.signal_matrix_cov), False
         
-        self.fluxcut = self.mp['fluxcut']
-        self.eff_fr = self.mp['eff_fr']
+        self.fluxcut = self.mp.get('fluxcut')
+        self.eff_fr = self.mp.get('eff_fr')
         self.lmax = max([u for (_,u) in self.lrange.values()])
         
         
@@ -84,8 +84,8 @@ class mspec_lnl(Likelihood):
                 if get_egfs and (default_egfs or (fr1,fr2) in self.per_freq_egfs):
                     cl += model['egfs']('cl_TT',
                                         p_egfs = p[self.per_freq_egfs[(fr1,fr2)]] if (fr1,fr2) in self.per_freq_egfs else None,
-                                        fluxcut=min(self.fluxcut[fr1],self.fluxcut[fr2]),
-                                        freqs=(self.eff_fr[fr1],self.eff_fr[fr2]),
+                                        fluxcut=min(self.fluxcut[fr1],self.fluxcut[fr2]) if self.fluxcut else None,
+                                        freqs=(self.eff_fr[fr1],self.eff_fr[fr2]) if self.eff_fr else None,
                                         lmax=self.lmax)
             return model_sig
 
