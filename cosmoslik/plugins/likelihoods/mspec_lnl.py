@@ -134,6 +134,7 @@ class mspec_lnl(Likelihood):
             lrange = self.lrange[(fri,frj)]
             if residuals:
                 slice_signal(processed_signal,lrange).diffed(slice_signal(model_total,lrange)[fri,frj]).plot(ax=ax,which=[(fri,frj)],c=data_color)
+                ax.set_ylim(*(ylim or (-39,39)))
             else:
                 slice_signal(processed_signal,lrange).plot(ax=ax,which=[(fri,frj)],c=data_color)
                 if show_model: 
@@ -144,15 +145,16 @@ class mspec_lnl(Likelihood):
                     
                 ax.set_ylim(*(ylim or ((0,6999) if yscale=='linear' else (11,9999))))
                 ax.set_yscale(yscale)
-                ax.set_xlim(2,self.lmax-1)
                 
-                if n==1:
-                    ax.set_title('%sx%s'%(fri,fri))
-                else:
-                    if i==0: ax.set_ylabel(frj,size=16)
-                    else: ax.set_yticklabels([])
-                    if j==n-1: ax.set_xlabel(fri,size=16)
-                    else: ax.set_xticklabels([])
+            ax.set_xlim(2,self.lmax-1)
+            
+            if n==1:
+                ax.set_title('%sx%s'%(fri,fri))
+            else:
+                if i==0: ax.set_ylabel(frj,size=16)
+                else: ax.set_yticklabels([])
+                if j==n-1: ax.set_xlabel(fri,size=16)
+                else: ax.set_xticklabels([])
 
 
 
