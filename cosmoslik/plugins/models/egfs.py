@@ -50,7 +50,7 @@ class egfs(Model):
                 colors = self.get_colors(p)
                 for comp in (lambda key: comps if key is True else key)(kwargs.pop('plot')):
                     ax.plot(comps[comp],label=comp,**({'color':colors[comp]} if colors else {}))
-                    
+                
             return sum(comps.values())
 
         get_egfs.__reduce_ex__ = lambda _: (_dont_pickle,(),None,None,None)
