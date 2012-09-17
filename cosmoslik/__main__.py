@@ -3,7 +3,7 @@
 import sys, os, cosmoslik, traceback, argparse
 
 parser = argparse.ArgumentParser(prog='cosmoslik.py')
-parser.add_argument('params.ini',nargs='?',help='a parameter file to run')
+parser.add_argument('params.ini',nargs='*',help='a parameter file to run')
 parser.add_argument('--list',action='store_true',default=False,help='list available modules')
 parser.add_argument('--doc',nargs=1,metavar='<module>',help='print the documentation for a module')
 parser.add_argument('--html_doc',nargs=1,metavar='<module>',help='open the documentation for a module in a web-browser')
@@ -49,21 +49,29 @@ def main(args):
         from subprocess import Popen, PIPE
         from cosmoslik import params
 
-        inifile = args['params.ini']
+        inifiles = args['params.ini']
         
-        if ('camb' in params.read_ini(inifile).get('models',[])): nnodes, ppn, wall, nproc = 6, 1, 24, 7
+        if ('camb' in params.read_ini(inifiles[0]).get('models',[])): nnodes, ppn, wall, nproc = 6, 1, 24, 7
         else: nnodes, ppn, wall, nproc = 1, 1, 6, 9
-        
-        name = inifile.replace('cosmoslik.','').replace('params.','').replace('.ini','')
-        dir = os.path.dirname(os.path.abspath(inifile))
+        #TODO: allow mixing CAMB/PICO runs
+        nnodes *= len(inifiles)
+            
+        name = 'cosmoslik'
         sys.argv.remove('--qsub')
         
-        proc = Popen(["qsub","-q","usplanck","-l",
-                      "nodes=%s:ppn=%s,pvmem=20gb"%(nnodes,ppn),
+        proc = Popen(["qsub","-q","usplanck",
+                      "-l","nodes=%s:ppn=%s,pvmem=20gb"%(nnodes,ppn),
                       "-l","walltime=%s:00:00"%wall,
                       "-N",name,"-o","%s.log"%name,"-j","oe","-V"],stdin=PIPE,stdout=PIPE)
         
-        proc.stdin.write('cd %s && %s -m cosmoslik -n %i %s'%(dir,sys.executable,nproc,' '.join(sys.argv[1:])))
+        cmd = ' &\n'.join(['(cd %s && %s -m cosmoslik -n %i %s &> %s)'%\
+                           (os.path.dirname(os.path.abspath(inifile)),
+                            sys.executable,
+                            nproc,
+                            os.path.basename(inifile),
+                            os.path.basename(inifile).replace('.ini','')+'.log') for inifile in inifiles])
+        print cmd
+        proc.stdin.write(cmd)
         proc.stdin.close()
         print proc.stdout.readline()
 
@@ -73,7 +81,10 @@ def main(args):
         os.system("mpiexec -n %i %s -m cosmoslik %s"%(int(args['n'][0]),sys.executable,' '.join(sys.argv[1:])))
         
     elif args['params.ini']:
-        for _ in cosmoslik.sample(args['params.ini']): pass
+        if len(args['params.ini'])>1:
+            raise Exception("Running multiple parameter files at once only available with --qsub.")
+        else:
+            for _ in cosmoslik.sample(args['params.ini'][0]): pass
 
 
 
