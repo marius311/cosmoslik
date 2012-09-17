@@ -84,7 +84,9 @@ def read_ini(f):
     Read a CosmoSlik ini file into a dictionary. 
     """ 
     
-    if isinstance(f,str): f=open(f)
+    if isinstance(f,str): 
+        rootdir = os.path.dirname(f)
+        f=open(f)
     f = enumerate(f,1)
     
     def _read_ini(f,subgroup=False):
@@ -103,7 +105,7 @@ def read_ini(f):
 
                 r = re.match('include (.*)',line)
                 if r!=None:
-                    d.update(read_ini(r.group(1)))
+                    d.update(read_ini(os.path.join(rootdir,r.group(1))))
                     continue
 
                 r = re.match('\s*(.*?)\s*=\s*(.*?)\s*$',line)

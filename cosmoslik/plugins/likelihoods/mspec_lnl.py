@@ -87,6 +87,9 @@ class mspec_lnl(Likelihood):
                                         fluxcut=min(self.fluxcut[fr1],self.fluxcut[fr2]) if self.fluxcut else None,
                                         freqs=(self.eff_fr[fr1],self.eff_fr[fr2]) if self.eff_fr else None,
                                         lmax=self.lmax)
+                    cl += p.get(('mspec','gal','amp_%s_%s'%tuple(sorted([fr1,fr2]))),0) * (arange(self.lmax)/float(p.get(('mspec','gal','norm_ell'),3000)))**p.get(('mspec','gal','tilt'),0)
+
+                    
             return model_sig
 
         if self.per_freq_egfs:
