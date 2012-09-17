@@ -155,7 +155,7 @@ def like2d(datx,daty,weights=None,
     
     if ax is None: ax = (figure(0) if fig is None else (figure(fig) if isinstance(fig,int) else fig)).add_subplot(111)
     if weights is None: weights=ones(len(datx))
-    if 'c' in kwargs: color=kwargs.pop('c')
+    if color is None: color = kwargs.pop('c') if 'c' in kwargs else 'b' 
     
     H,xe,ye = histogram2d(datx,daty,nbins,weights=weights)
     xem, yem = movavg(xe,2), movavg(ye,2)
