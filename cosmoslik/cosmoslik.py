@@ -71,7 +71,7 @@ def sample(paramfile,**kwargs):
 #                assert all(k in p1 for k in outputted), "Derivers didn't calculate all the derived parameters. Check 'output' key or add derivers."
 
             if w1!=0:
-                for (l,v) in zip(samples,(x1, w1, l1, p1)): l.append(v)
+                for (l,v) in zip(samples,(x1, w1, l1, None)): l.append(v)
 
             if f!=None and w1!=0: 
                 f.write(' '.join(map(str,[l1,w1]+[p1[name] for name in outputted]))+'\n')
