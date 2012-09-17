@@ -1,3 +1,0 @@
-[submodule "cosmoslik/plugins/models/camb/camb4py"]
-	path = cosmoslik/plugins/models/camb/camb4py
-	url = git://github.com/marius311/camb4py.git
