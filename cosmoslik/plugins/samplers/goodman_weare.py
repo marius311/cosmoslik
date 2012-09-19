@@ -17,13 +17,9 @@ class goodman_weare(Sampler):
         if nwalkers < 2*len(x): raise Exception("You need at least %i Goodman-Weare walkers (twice the number of sampled parameters)"%(2*len(x)))
         nsamp = p.get('samples',10000)
         
-        
-        #hack since emcee doesn't allow returning extra info from likelihood
-        #===
         def mylnl(x):
-            l, self.newp[tuple(x)] = lnl(x,p)
-            return -l
-        #===
+            l, extra = lnl(x,p)
+            return -l, extra
         
         sampler=EnsembleSampler(nwalkers,len(x), mylnl, pool=namedtuple('pool',['map'])(mpi.mpi_map))
         
@@ -35,18 +31,8 @@ class goodman_weare(Sampler):
                 name = '.'.join(k)
                 if name in chain: p0[:,i] = chain[name][-nwalkers:]
     
-        for pos,lnprob,_ in sampler.sample(p0,iterations=nsamp/nwalkers):
+        for pos,lnprob,_,extra in sampler.sample(p0,iterations=nsamp/nwalkers):
 
-            #===
-            if mpi.get_size()>1:
-                for np in self.newp.values():
-                    for k in list(np.keys()): 
-                        if k[0]=='_': np.pop(k)
-                newps = MPI.COMM_WORLD.gather(self.newp)
-                if mpi.is_master(): 
-                    for newp in newps: self.newp.update(newp) 
-            self.newp = {tuple(x):self.newp.pop(tuple(x)) for x in pos} if mpi.is_master() else {}
-            #===
-            
-            for cur_x, cur_lnl in zip(pos.copy(),lnprob.copy()):
-                if mpi.is_master(): yield cur_x, 1, -cur_lnl, self.newp[tuple(cur_x)]
+            for cur_x, cur_lnl, cur_extra in zip(pos,lnprob,extra):
+#                import ipdb; ipdb.set_trace()
+                if mpi.is_master(): yield cur_x, 1, -cur_lnl, cur_extra
