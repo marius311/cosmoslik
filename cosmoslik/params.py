@@ -6,8 +6,12 @@ from collections import OrderedDict
 class SectionDict(dict):
     """ Dictionary class for cosmoslik with a few extra convenience methods. """
     
-    sampled = {}
+    sampled = None
     
+    def __init__(self,*args,**kwargs):
+        super(SectionDict,self).__init__(*args,**kwargs)
+        self.sampled = {}
+        
     def section(self,key):
         """ Returns the dictionary for a subsection, or {} if that subsection is not present. """
         return self.get(key,{})
@@ -72,7 +76,9 @@ class SectionDict(dict):
         return OrderedDict(sorted(sampled))
     
     def copy(self):
-        return SectionDict(self)
+        copy = SectionDict(self)
+        copy.sampled = self.sampled
+        return copy
 
 
 def load_ini(params, **kwargs):
@@ -142,8 +148,6 @@ def eval_values(p):
     
 def process_parameters(p,paramfile=None):
     """ Process parameters. """
-   
-    p.sampled = {}
    
     for k,v in p.iteritems():
         if (type(v)==str):
