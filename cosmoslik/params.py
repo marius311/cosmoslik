@@ -77,6 +77,8 @@ class SectionDict(dict):
     
     def copy(self):
         copy = SectionDict(self)
+        for k,v in self.iteritems(): 
+            if isinstance(v,SectionDict): self[k] = v.copy()
         copy.sampled = self.sampled
         return copy
 
