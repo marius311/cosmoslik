@@ -1,11 +1,10 @@
 import mspec as M
 from mspec.utils import pairs
-from numpy import dot, arange, product, zeros
+from numpy import dot, arange, product, zeros, load, exp, vstack
 from scipy.linalg import cho_solve, cholesky
 from cosmoslik.plugins import Likelihood
 
 class mspec_lnl(Likelihood):
-    
     
     def get_required_models(self,p):
         return ['cl_TT']
@@ -22,21 +21,26 @@ class mspec_lnl(Likelihood):
         
         self.cleaning = self.mp['cleaning'] if 'cleaning' in self.mp else {m:[(m,1)] for m in self.signal.get_maps()}
         
+        if 'beam' in self.mp:
+            self.beampca = M.SymmetricTensorDict()
+            for k,v in self.mp['beam'].items():
+                self.beampca[tuple(k.split('_'))] = load(v['file']) 
+        
         self.per_freq_egfs = M.SymmetricTensorDict(self.mp.get('per_freq_egfs',{}))
         
+        self.fluxcut = self.mp.get('fluxcut')
+        self.eff_fr = self.mp.get('eff_fr')
+        self.lrange = self.mp['lrange']
+        self.lmax = self.lrange[1] if isinstance(self.lrange,tuple) else max([u for (_,u) in self.lrange.values()])
+
         processed_signal = self.process_signal(p, self.signal, do_calib=False)
 
-        self.lrange = self.mp['lrange']
         if isinstance(self.lrange,tuple): 
             self.lrange = {k:self.lrange for k in processed_signal.get_spectra()}
         
         self.signal_matrix_cov = processed_signal.get_as_matrix(lrange=self.lrange)[1]
-        
         self.signal_matrix_cov = cholesky(self.signal_matrix_cov), False
         
-        self.fluxcut = self.mp.get('fluxcut')
-        self.eff_fr = self.mp.get('eff_fr')
-        self.lmax = max([u for (_,u) in self.lrange.values()])
         
         
     def process_signal(self, p, sig=None, do_calib=True, keep_cov=True):
@@ -56,6 +60,16 @@ class mspec_lnl(Likelihood):
         
          
         calib(sig) #apply calibration to frequency PS
+        
+        if 'beam' in self.mp:
+            for k,v in self.mp['beam'].items():
+                if not k.startswith('_'):
+                    ps = tuple(k.split('_'))
+                    dbl = sig.binning(exp(dot(self.beampca[ps],[v.get('pca%.2i'%i,0) for i in range(self.beampca[ps].shape[1])])))
+                    nl = min(sig[ps].size,dbl.size)
+                    sig[ps][:nl] = sig[ps][:nl] * dbl[:nl]
+
+
         sig=sig.lincombo(self.cleaning)
         calib(sig) #apply calibration to cleaned PS
             
@@ -160,7 +174,11 @@ class mspec_lnl(Likelihood):
                 else: ax.set_xticklabels([])
 
 
-
+    def beam_lnl(self,p):
+        return sum(v.get('pca%.2i'%i,0)**2/2. 
+                   for k,v in p['mspec'].get('beam',{}).items()
+                   for i in range(self.beampca[tuple(k.split('_'))].shape[1]))
+    
     
     def lnl(self,p,model):
         
@@ -170,4 +188,4 @@ class mspec_lnl(Likelihood):
         
         #Compute the likelihood  
         dcl = cl_model_matrix - signal_matrix_spec
-        return dot(dcl,cho_solve(self.signal_matrix_cov,dcl))/2
+        return dot(dcl,cho_solve(self.signal_matrix_cov,dcl))/2 + self.beam_lnl(p)
