@@ -6,6 +6,8 @@ from collections import OrderedDict
 class SectionDict(dict):
     """ Dictionary class for cosmoslik with a few extra convenience methods. """
     
+    sampled = {}
+    
     def section(self,key):
         """ Returns the dictionary for a subsection, or {} if that subsection is not present. """
         return self.get(key,{})
@@ -51,14 +53,19 @@ class SectionDict(dict):
         try: self[key]; return True
         except KeyError: return False
     
-    def add_sampled_param(self, name, value, min=-inf, max=inf, width=1):
-        """ Add a sampled parameter. """
+    def add_sampled_param(self, name, value, *args):
+        """ 
+        Add a sampled parameter. 
+        """
+        if len(args)==3: min,max,width=args
+        elif len(args)==1: min,max,width=-inf,inf,args[0]
+        else: raise ValueError('Unxpected number of args.')
         self[name]=value
-        self.setdefault('_sampled',{})[name] = [value,min,max,width]
+        self.sampled[name] = [value,min,max,width]
         
     def get_all_sampled(self):
         """ Recursively get sampled params in all sub-sections. """
-        sampled = [((k,),v) for k,v in self.get('_sampled',{}).iteritems()]
+        sampled = [((k,),v) for k,v in self.sampled.iteritems()]
         for k, v in self.iteritems():
             if isinstance(v,SectionDict): 
                 sampled += [((k,)+k2, v2) for k2, v2 in v.get_all_sampled().iteritems()] 
@@ -136,14 +143,14 @@ def eval_values(p):
 def process_parameters(p,paramfile=None):
     """ Process parameters. """
    
-    p['_sampled'] = {}
+    p.sampled = {}
    
     for k,v in p.iteritems():
         if (type(v)==str):
-            r = re.search("({0})\s\[\s?({0})\s({0})\s({0})\s?\]".format("[0-9.eE+-]+?"),v)
-            if (r!=None):
-                p.add_sampled_param(k,*map(float,r.groups()))
-            else:
+            r = re.match("([0-9.eE+-]+?)\s?\[(.*)\]",v)
+            try:
+                p.add_sampled_param(k,float(r.group(1)),*map(float,r.group(2).split()))
+            except Exception as e:
                 try: 
                     v = literal_eval(v)
                     if isinstance(v, list): v=array(v)
