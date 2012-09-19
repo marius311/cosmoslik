@@ -1,6 +1,7 @@
 from numpy import *
 from collections import namedtuple
 import cosmoslik.mpi as mpi
+import cosmoslik.chains as chains
 from emcee.ensemble import EnsembleSampler
 from numpy.random import multivariate_normal
 from cosmoslik.plugins import Sampler
@@ -25,7 +26,14 @@ class goodman_weare(Sampler):
         #===
         
         sampler=EnsembleSampler(nwalkers,len(x), mylnl, pool=namedtuple('pool',['map'])(mpi.mpi_map))
+        
         p0=mpi.mpi_consistent(multivariate_normal(x,p['_cov']/len(x)*p.get('proposal_scale',1)**2,size=nwalkers))
+        
+        if ('goodman_weare','starting_points') in p:
+            chain = chains.load_chain(p['goodman_weare','starting_points']).join()
+            for i,k in enumerate(p.get_all_sampled()):
+                name = '.'.join(k)
+                if name in chain: p0[:,i] = chain[name][-nwalkers:]
     
         for pos,lnprob,_ in sampler.sample(p0,iterations=nsamp/nwalkers):
 
