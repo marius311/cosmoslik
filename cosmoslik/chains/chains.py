@@ -126,6 +126,9 @@ class Chain(dict):
         if 'color' in kwargs: kwargs['colors']=[kwargs.pop('color')]
         likegrid(self,**kwargs)
 
+    def join(self):
+        """Does nothing since already one chain."""
+        return self
         
         
 class Chains(list):
