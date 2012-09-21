@@ -142,7 +142,6 @@ def _mpi_mcmc(x,lnl,p):
                     and sum(weights[source-1])>p.get('proposal_update_start',1000)):
                     comm.send({"_cov":get_new_cov(samples,weights)},dest=source)
                 else: comm.send({},dest=source)
-                comm.send(None,dest=source)
 
             else: 
                 finished[source-1]=True

@@ -62,13 +62,9 @@ class mspec_lnl(Likelihood):
         calib(sig) #apply calibration to frequency PS
         
         if 'beam' in self.mp:
-            for k,v in self.mp['beam'].items():
-                if not k.startswith('_'):
-                    ps = tuple(k.split('_'))
-                    dbl = sig.binning(exp(dot(self.beampca[ps],[v.get('pca%.2i'%i,0) for i in range(self.beampca[ps].shape[1])])))
-                    nl = min(sig[ps].size,dbl.size)
-                    sig[ps][:nl] = sig[ps][:nl] * dbl[:nl]
-
+            for ps,dbl in self.get_beam_correction(p).items():
+                nl = min(sig[ps].size,dbl.size)
+                sig[ps][:nl] = sig[ps][:nl] * dbl[:nl]
 
         sig=sig.lincombo(self.cleaning)
         calib(sig) #apply calibration to cleaned PS
@@ -173,7 +169,14 @@ class mspec_lnl(Likelihood):
                 if j==n-1: ax.set_xlabel(fri,size=16)
                 else: ax.set_xticklabels([])
 
-
+                   
+    def get_beam_correction(self,p):
+        bc = {}
+        for k,v in p['mspec','beam'].items():
+            ps = tuple(k.split('_'))
+            bc[ps] = self.signal.binning(10**(dot(self.beampca[ps],[v.get('pca%.2i'%i,0) for i in range(self.beampca[ps].shape[1])])))
+        return bc
+    
     def beam_lnl(self,p):
         return sum(v.get('pca%.2i'%i,0)**2/2. 
                    for k,v in p['mspec'].get('beam',{}).items()
