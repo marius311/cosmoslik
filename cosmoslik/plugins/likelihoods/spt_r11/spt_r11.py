@@ -1,4 +1,4 @@
-from numpy import array, loadtxt, dot, arange, diag, hstack, zeros
+from numpy import array, loadtxt, dot, arange, diag, hstack, zeros, identity
 from scipy.linalg import cho_factor, cho_solve
 from cosmoslik.plugins import Likelihood
 from itertools import combinations_with_replacement
@@ -64,8 +64,8 @@ class spt_r11(Likelihood):
         cl_vector = hstack([cl[spec_name] for spec_name in self.spec_names])
         
         dcl = self.spec_vector - cl_vector
+        if self.weights is not None: dcl = dot(dcl,self.weights.T)
         return dot(dcl,cho_solve(self.cov, dcl))/2 + self.lnl_calib(p)
-
 
     def lnl_calib(self,p):
         return sum(p.get(('spt_r11','a%s'%fr),1)-1**2/2/sig**2 \
@@ -75,7 +75,8 @@ class spt_r11(Likelihood):
     def get_cl_model(self,p,model):
         def get_cl(fr1,fr2): 
             calib = p.get(('spt_r11','a%s'%fr1),1)*p.get(('spt_r11','a%s'%fr2),1) 
-            return calib * hstack([model['cl_TT'],zeros(10000)])[:self.lmax] + model['egfs']('cl_TT', lmax=self.lmax, freqs=(self.freq[fr1],self.freq[fr2]), fluxcut=self.fluxcut)
+            return calib * ((0 if self.cmb_free else hstack([model['cl_TT'],zeros(10000)])[:self.lmax]) + 
+                            model['egfs']('cl_TT', lmax=self.lmax, freqs=(self.freq[fr1],self.freq[fr2]), fluxcut=self.fluxcut))
         def apply_windows(cl,windows): return array([dot(cl[self.windowrange],w[:,1]) for w in windows])
         return {spec_name:apply_windows(get_cl(*spec_name),windows) for (spec_name, windows) in self.windows.items()}
     
@@ -87,7 +88,12 @@ class spt_r11(Likelihood):
     def get_required_models(self, p):
         return ['cl_TT', 'egfs']
     
-    
+    def get_cmb_free_weights(self,cspec = ('150','150')):
+        return hstack(hstack([[identity(15) if spec==dspec else -identity(15) if spec==cspec else zeros((15,15)) 
+                               for spec in self.spec_names] 
+                              for dspec in self.spec_names if dspec!=cspec]))
+        
+        
     def init(self, p):
         
         self.datadir     = os.path.join(os.path.dirname(__file__),'spt_multif_0809')
@@ -95,8 +101,11 @@ class spt_r11(Likelihood):
         self.spec_names  = [('90','90'),('90','150'),('90','220'),('150','150'),('150','220'),('220','220')]
         self.spec_vector = loadtxt(os.path.join(self.datadir,"spectrum_90_90x150_90x220_150_150x220_220.txt"))[:,1]
         self.spec        = dict(zip(self.spec_names,self.spec_vector.reshape(6,15)))
-        self.cov         = cho_factor(loadtxt(os.path.join(self.datadir,"covariance_90_90x150_90x220_150_150x220_220.txt")).reshape(90,90))
-        self.sigmas      = dict(zip(self.spec_names,diag(self.cov[0]).reshape(6,15)))
+        self.cmb_free    = p.get(('spt_r11','cmb_free'),False)
+        self.weights     = self.get_cmb_free_weights() if self.cmb_free else None
+        self.cov         = loadtxt(os.path.join(self.datadir,"covariance_90_90x150_90x220_150_150x220_220.txt")).reshape(90,90)
+        self.sigmas      = dict(zip(self.spec_names,diag(self.cov).reshape(6,15)))
+        self.cov         = self.cov if self.weights is None else cho_factor(dot(self.weights,dot(self.cov,self.weights.T)))
         self.windows     = dict(zip(self.spec_names,(lambda w: w.reshape(6,15,w.shape[1],2))(array([loadtxt(os.path.join(self.datadir,'window_%i'%i)) for i in range(1,91)]))))
         self.windowrange = (lambda w: slice(w[0,0],w[-1,0]+1))(self.windows.values()[0][0])
         self.ells        = {frs: array([dot(arange(self.windowrange.start,self.windowrange.stop),w[:,1]) for w in windows]) for frs,windows in self.windows.items()} 
