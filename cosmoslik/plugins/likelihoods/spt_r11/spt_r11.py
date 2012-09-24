@@ -68,8 +68,8 @@ class spt_r11(Likelihood):
         return dot(dcl,cho_solve(self.cov, dcl))/2 + self.lnl_calib(p)
 
     def lnl_calib(self,p):
-        return sum(p.get(('spt_r11','a%s'%fr),1)-1**2/2/sig**2 \
-                    for fr,sig in [('90',.175),('150',.016),('220',.024)])
+        return sum((p.get(('spt_r11','a%s'%fr),1)-1)**2/2/sig**2
+                   for fr,sig in [('90',.175),('150',.016),('220',.024)])
         
         
     def get_cl_model(self,p,model):
