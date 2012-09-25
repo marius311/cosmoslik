@@ -108,7 +108,7 @@ def _mcmc(x,lnl,p):
         branches = mpi.mpi_map(step, zip([cur_lnl]*mpi.get_size(),test_x), distribute=False)
 
         if mpi.is_master():
-            if i%500==0 and i>1000: 
+            if samples and len(samples)%p.get('proposal_update_freq',100)==0: 
                 p['_cov'] = get_new_cov(samples, weights)
             for accepted, sample in branches:
                 if not accepted:

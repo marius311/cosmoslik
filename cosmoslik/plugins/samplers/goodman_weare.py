@@ -19,6 +19,8 @@ class goodman_weare(Sampler):
         
         def mylnl(x):
             l, extra = lnl(x,p)
+            for k in extra.keys():
+                if k.startswith('_'): extra.pop(k)
             return -l, extra
         
         sampler=EnsembleSampler(nwalkers,len(x), mylnl, pool=namedtuple('pool',['map'])(mpi.mpi_map))

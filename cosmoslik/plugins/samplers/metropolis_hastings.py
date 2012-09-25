@@ -140,7 +140,8 @@ def _mpi_mcmc(x,lnl,p):
                 
                 if (p.get("proposal_update",True) 
                     and sum(weights[source-1])>p.get('proposal_update_start',1000)):
-                    comm.send({"_cov":get_new_cov(samples,weights)},dest=source)
+                    cov = get_new_cov(samples,weights)
+                    comm.send({"_cov":cov},dest=source)
                 else: comm.send({},dest=source)
 
             else: 
@@ -154,7 +155,7 @@ def _mpi_mcmc(x,lnl,p):
             try:
                 yield s
                 samples.append(sampletuple(s.x,s.weight,s.lnl,None))
-                if len(samples)==50:
+                if len(samples)==500:
                     comm.send((rank,samples),dest=0)
                     s = sampler.send(comm.recv(source=0))
                     samples = []
