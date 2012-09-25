@@ -99,10 +99,19 @@ class Chain(dict):
             f.write("# "+" ".join(keys)+"\n")
             savetxt(f,self.matrix(keys))
             
-    def plot(self,param):
+    def plot(self,param=None,ncols=5,fig=None,size=4):
         """Plot the value of a parameter as a function of sample number."""
-        from matplotlib.pyplot import plot
-        plot(cumsum(self['weight']),self[param])
+        from matplotlib.pyplot import figure
+        if fig is None: fig=figure()
+        params = [param] if param is not None else self.params()
+        nrows = len(self.params())/ncols+1
+        fig.set_size_inches(ncols*size,nrows*size/1.6)
+        for i,param in enumerate(params,1):
+            ax=fig.add_subplot(nrows,ncols,i)
+            ax.plot(cumsum(self['weight']),self[param])
+            ax.set_title(param)
+        fig.tight_layout()
+
         
     def like1d(self,p,**kwargs): 
         """
@@ -129,6 +138,7 @@ class Chain(dict):
     def join(self):
         """Does nothing since already one chain."""
         return self
+
         
         
 class Chains(list):
@@ -142,9 +152,13 @@ class Chains(list):
         """Combine the chains into one."""
         return Chain((k,hstack([c[k] for c in self])) for k in self[0].keys())
     
-    def plot(self,param): 
+    def plot(self,param=None,fig=None,**kwargs): 
         """Plot the value of a parameter as a function of sample number for each chain."""
-        for c in self: c.plot(param)
+        from matplotlib.pyplot import figure
+        if fig is None: fig=figure()
+        for c in self: c.plot(param,fig=fig,**kwargs)
+
+    
     
 def like2d(datx,daty,weights=None,
            nbins=15,which=[.68,.95],
