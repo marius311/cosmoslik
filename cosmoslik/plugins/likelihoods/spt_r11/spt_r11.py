@@ -69,7 +69,7 @@ class spt_r11(Likelihood):
 
     def lnl_calib(self,p):
         return sum((p.get(('spt_r11','a%s'%fr),1)-1)**2/2/sig**2
-                   for fr,sig in [('90',.175),('150',.016),('220',.024)])
+                   for fr,sig in [('90',.0175),('150',.016),('220',.024)])
         
         
     def get_cl_model(self,p,model):

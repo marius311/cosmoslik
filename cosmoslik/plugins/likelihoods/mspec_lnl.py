@@ -43,7 +43,7 @@ class mspec_lnl(Likelihood):
         
         
         
-    def process_signal(self, p, sig=None, do_calib=True, keep_cov=True):
+    def process_signal(self, p, sig=None, do_calib=True, do_beam=True, keep_cov=True):
         """Get processed signal, appyling calibration, doing linear combination, etc.."""
         
         if sig is None: sig=self.signal
@@ -61,8 +61,9 @@ class mspec_lnl(Likelihood):
          
         calib(sig) #apply calibration to frequency PS
         
-        if 'beam' in self.mp:
+        if do_beam and 'beam' in self.mp :
             for ps,dbl in self.get_beam_correction(p).items():
+                dbl = sig.binning(dbl)
                 nl = min(sig[ps].size,dbl.size)
                 sig[ps][:nl] = sig[ps][:nl] * dbl[:nl]
 
@@ -111,11 +112,11 @@ class mspec_lnl(Likelihood):
 
         if self.per_freq_egfs:
             model_sig = add_in_components(model_sig, in_spectra, get_cmb=get_cmb, default_egfs=False)
-            model_sig = self.process_signal(p,model_sig,do_calib=False)
+            model_sig = self.process_signal(p,model_sig,do_calib=False, do_beam=False)
             model_sig = add_in_components(model_sig, out_spectra, get_cmb=False, default_egfs=False)
             return model_sig.binned(self.mp['binning'])
         else:
-            return self.process_signal(p,add_in_components(model_sig, in_spectra, get_cmb=get_cmb).binned(self.mp['binning']),do_calib=False)
+            return self.process_signal(p,add_in_components(model_sig, in_spectra, get_cmb=get_cmb).binned(self.mp['binning']),do_calib=False, do_beam=False)
 
 
     def plot(self,
@@ -181,9 +182,9 @@ class mspec_lnl(Likelihood):
         bc = {}
         for k,v in p['mspec','beam'].items():
             ps = tuple(k.split('_'))
-            bc[ps] = self.signal.binning(10**(dot(self.beampca[ps],[v.get('pca%.2i'%i,0) for i in range(self.beampca[ps].shape[1])])))
+            bc[ps] = 10**(dot(self.beampca[ps],[v.get('pca%.2i'%i,0) for i in range(self.beampca[ps].shape[1])]))
         return bc
-    
+        
     def beam_lnl(self,p):
         return sum(v.get('pca%.2i'%i,0)**2/2. 
                    for k,v in p['mspec'].get('beam',{}).items()
