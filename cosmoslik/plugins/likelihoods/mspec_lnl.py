@@ -1,6 +1,6 @@
 import mspec as M
 from mspec.utils import pairs
-from numpy import dot, arange, product, zeros, load, exp, vstack
+from numpy import dot, arange, product, zeros, load, exp, vstack, hstack, ones
 from scipy.linalg import cho_solve, cholesky
 from cosmoslik.plugins import Likelihood
 
@@ -75,6 +75,7 @@ class mspec_lnl(Likelihood):
                      model=None,
                      get_cmb=True,
                      get_egfs=True,
+                     get_gal=True,
                      egfs_kwargs=None):
         """ 
         Build an Mspec PowerSpectra object which holds CMB + foreground C_ell's
@@ -97,7 +98,13 @@ class mspec_lnl(Likelihood):
                                         fluxcut=min(self.fluxcut[fr1],self.fluxcut[fr2]) if self.fluxcut else None,
                                         freqs=(self.eff_fr[fr1],self.eff_fr[fr2]) if self.eff_fr else None,
                                         lmax=self.lmax)
-                    cl += p.get(('mspec','gal','amp_%s_%s'%tuple(sorted([fr1,fr2]))),0) * (arange(self.lmax)/float(p.get(('mspec','gal','norm_ell'),3000)))**p.get(('mspec','gal','tilt'),0)
+                if get_gal:
+                    amp = p.get(('mspec','gal','amp_%s_%s'%tuple(sorted([fr1,fr2]))),0)
+                    norm_ell = float(p.get(('mspec','gal','norm_ell'),500))
+                    tilt = p.get(('mspec','gal','tilt'),-1)
+                    plateau_fac = p.get(('mspec','gal','plateau_fac'),1)
+                    plateau_ell = p.get(('mspec','gal','plateau_ell'),300)
+                    cl += amp*hstack([((plateau_ell/norm_ell)**tilt)*plateau_fac*ones(plateau_ell),(arange(plateau_ell,self.lmax)/norm_ell)**tilt])
 
                     
             return model_sig
