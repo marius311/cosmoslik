@@ -38,7 +38,7 @@ class egfs(Model):
     def get_colors(self, p):
         return None
     
-    def get(self, p, required):
+    def get(self, p, required=None):
         
         def get_egfs(*args, **kwargs):
             
