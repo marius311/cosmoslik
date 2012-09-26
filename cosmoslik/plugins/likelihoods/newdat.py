@@ -18,6 +18,8 @@ class newdat(Likelihood):
         self.fluxcut = p['newdat','fluxcut']
         self.freqs = p['newdat','freqs']
         
+        self.egfs = p.get(('newdat','egfs'),'egfs')
+        
         fac = p.get(('newdat','factor'),1)
         
         with open(p['newdat','file']) as f:
@@ -82,12 +84,12 @@ class newdat(Likelihood):
                 
             if show_comps:
                 ax.plot(p['_model']['cl_TT'],label='CMB')
-                p['_model']['egfs']('cl_TT',
-                                    fluxcut=min(self.fluxcut,self.fluxcut),
-                                    freqs=self.freqs,
-                                    lmax=self.lmax,
-                                    plot=True,
-                                    ax=ax)
+                p['_model'][self.egfs]('cl_TT',
+                                       fluxcut=min(self.fluxcut,self.fluxcut),
+                                       freqs=self.freqs,
+                                       lmax=self.lmax,
+                                       plot=True,
+                                       ax=ax)
             
         return ax
 
@@ -99,7 +101,7 @@ class newdat(Likelihood):
             if x in self.bands.keys():
                 cl_model[x] = model['cl_%s'%x]
                 if len(cl_model[x]) < self.lmax: raise Exception('Newdat likelihood needs cl_%s to lmax=%i'%(x,self.lmax))
-                cl_model[x] += model['egfs']('cl_%s'%x, fluxcut=self.fluxcut, freqs=self.freqs, lmax=len(cl_model[x]))
+                cl_model[x] += model[self.egfs]('cl_%s'%x, fluxcut=self.fluxcut, freqs=self.freqs, lmax=len(cl_model[x]))
                 
                 
         cl_model = {x:array([mean(cl_model[x][lmin:lmax+1]) for (lmin,lmax) in self.bands[x][:,[5,6]]]) for x in self.xs if x in self.bands}
