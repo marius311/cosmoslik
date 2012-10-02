@@ -138,11 +138,12 @@ def read_ini(f):
 
 def eval_values(p):
     """ Try to evaluate values as Python expressions. """
+    from numpy import arange, load, loadtxt, ones, zeros, array, pi, exp
     for k,v in p.items():
         if isinstance(v,dict): eval_values(v)
         else:
             try: 
-                v = literal_eval(v)
+                v = eval(v)
                 p[k]=v
             except: pass
         

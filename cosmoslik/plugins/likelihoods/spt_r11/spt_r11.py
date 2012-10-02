@@ -1,4 +1,4 @@
-from numpy import array, loadtxt, dot, arange, diag, hstack, zeros, identity
+from numpy import array, loadtxt, dot, arange, diag, hstack, zeros, identity, sqrt
 from scipy.linalg import cho_factor, cho_solve
 from cosmoslik.plugins import Likelihood
 from itertools import combinations_with_replacement
@@ -104,8 +104,8 @@ class spt_r11(Likelihood):
         self.cmb_free    = p.get(('spt_r11','cmb_free'),False)
         self.weights     = self.get_cmb_free_weights() if self.cmb_free else None
         self.cov         = loadtxt(os.path.join(self.datadir,"covariance_90_90x150_90x220_150_150x220_220.txt")).reshape(90,90)
-        self.sigmas      = dict(zip(self.spec_names,diag(self.cov).reshape(6,15)))
-        self.cov         = self.cov if self.weights is None else cho_factor(dot(self.weights,dot(self.cov,self.weights.T)))
+        self.sigmas      = dict(zip(self.spec_names,sqrt(diag(self.cov)).reshape(6,15)))
+        self.cov         = cho_factor(self.cov if self.weights is None else dot(self.weights,dot(self.cov,self.weights.T)))
         self.windows     = dict(zip(self.spec_names,(lambda w: w.reshape(6,15,w.shape[1],2))(array([loadtxt(os.path.join(self.datadir,'window_%i'%i)) for i in range(1,91)]))))
         self.windowrange = (lambda w: slice(w[0,0],w[-1,0]+1))(self.windows.values()[0][0])
         self.ells        = {frs: array([dot(arange(self.windowrange.start,self.windowrange.stop),w[:,1]) for w in windows]) for frs,windows in self.windows.items()} 

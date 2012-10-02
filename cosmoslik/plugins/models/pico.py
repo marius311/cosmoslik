@@ -12,14 +12,17 @@ class pico(Model):
         except KeyError: raise Exception("Please specify [pico]{datafile = ... }")
         else: self.pico = pypico.load_pico(*([datafile] if isinstance(datafile,str) else datafile))
             
-        self.camb = camb.camb()
-        self.camb.init(p)
+        if 'z_drag' in p['derived']:
+            self.camb = camb.camb()
+            self.camb.init(p)
+        else:
+            self.camb = None
         
     def get(self,p,required):
         if (self.num_pico+self.num_camb)%10==0 and p.get('pico_verbose',False): print 'PICO=%i CAMB=%i'%(self.num_pico,self.num_camb)
         try: 
             r = self.pico.get(outputs=[r for r in required if r in self.pico.outputs()],**p)
-            self.camb.get(p,['z_drag'])
+            if self.camb is not None: self.camb.get(p,['z_drag'])
             self.num_pico+=1
             return r
         except pypico.CantUsePICO as e: 

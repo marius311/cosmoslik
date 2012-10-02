@@ -77,6 +77,7 @@ class mspec_lnl(Likelihood):
                      get_cmb=True,
                      get_egfs=True,
                      get_gal=True,
+                     get_subpix=True,
                      egfs_kwargs=None):
         """ 
         Build an Mspec PowerSpectra object which holds CMB + foreground C_ell's
@@ -106,7 +107,10 @@ class mspec_lnl(Likelihood):
                     plateau_fac = p.get(('mspec','gal','plateau_fac'),1)
                     plateau_ell = p.get(('mspec','gal','plateau_ell'),300)
                     cl += amp*hstack([((plateau_ell/norm_ell)**tilt)*plateau_fac*ones(plateau_ell),(arange(plateau_ell,self.lmax)/norm_ell)**tilt])
-
+                if get_subpix:
+                    subpix = p.get(('mspec','subpix','%s_%s'%tuple(sorted([fr1,fr2]))))
+                    if subpix is not None:
+                        cl += subpix['amp'] * subpix['dl_shape'][:self.lmax] / subpix['dl_shape'][subpix['norm_ell']]
                     
             return model_sig
 
