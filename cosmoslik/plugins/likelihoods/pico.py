@@ -35,7 +35,7 @@ class pico(Likelihood):
         except KeyError: raise Exception("Please specify [pico_lnl]{datafile = ... }")
         else: self.pico = pypico.load_pico(datafile)
         
-        self.on_fail = p['pico_lnl'].get('on_fail','fail')
+        self.on_fail = str(p['pico_lnl'].get('on_fail','fail'))
         on_fail_opts = ['fail','force','inf']
         if self.on_fail not in on_fail_opts:
             raise Exception('pico_lnl.on_fail should be one of %s'%on_fail_opts)
