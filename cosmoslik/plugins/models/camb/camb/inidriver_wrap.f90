@@ -326,7 +326,13 @@ contains
             if ((P%OutputNormalization /= outCOBE) .or. .not. P%WantCls)  call Transfer_output_sig8(MT)
         end if
 
-        if (P%want_zdrag) z_drag_ = z_drag
+        if (P%want_zdrag) then
+            if (.not. P%WantCls) then
+                call CAMBParams_Set(P)
+                call InitVars
+            end if
+            z_drag_ = z_drag
+        endif
 
         if (P%WantCls) then
 
