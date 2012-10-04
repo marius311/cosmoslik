@@ -1,5 +1,6 @@
-from scipy.integrate import quad 
-from numpy import *
+from scipy.integrate import quad
+from scipy.weave import inline
+from numpy import array, diag, sqrt, pi, inf, dot, vectorize, sin, sinh
 from numpy.linalg import inv
 from cosmoslik.plugins import Likelihood
 
@@ -29,21 +30,23 @@ class bao(Likelihood):
         self.Dv_over_rs_data=array([2.98,8.88,13.67,13.77])*rs_rescale
         self.Dv_over_rs_cov=(diag([0.13,0.17,0.22,0.65])*rs_rescale)**2      
 
+    def get_Dv_over_rs_model(self,p,model=None):
+        rs = p['rs_drag']
+        return [Dv(z=z, allkw=p, **p)/rs for z in self.zvec]
+        
+    def plot(self,p,model=None):
+        from matplotlib.pyplot import errorbar, plot, draw, xlim
+        Dv_over_rs_model = self.get_Dv_over_rs_model(p, model)
+        errorbar(self.zvec,self.Dv_over_rs_data,yerr=sqrt(diag(self.Dv_over_rs_cov)),fmt='.')
+        plot(self.zvec,Dv_over_rs_model)
+        xlim(0,.7)
+
 
     def lnl(self,p,model):
         
         rs = p['rs_drag']
 
         Dv_over_rs_model = [Dv(z=z, allkw=p, **p)/rs for z in self.zvec]
-        
-        if p.get('diagnostic'):
-            from matplotlib.pyplot import ion, errorbar, plot, draw, cla, yscale, ylim, xlim
-            ion()
-            cla()
-            errorbar(self.zvec,self.Dv_over_rs_data,yerr=sqrt(diag(self.Dv_over_rs_cov)),fmt='.')
-            plot(self.zvec,Dv_over_rs_model)
-            xlim(0,.7)
-            draw()
         
         dx = self.Dv_over_rs_data - Dv_over_rs_model
         return dot(dx,dot(inv(self.Dv_over_rs_cov),dx))/2
@@ -118,7 +121,7 @@ def Hubble(z, ommh2, omkh2, omvh2, mnu, Nnu_massive, Nnu_massless,**kw):
     a = 1./(1.+z)
     
     if mnu==0: rhonu = rhogamma0*7./8.*(4./11.)**(4./3.)*a**-4.
-    else: rhoredshift(a,ae,Te,mnu/(1.*Nnu_massive))
+    else: rhonu = rhoredshift(a,ae,Te,mnu/(1.*Nnu_massive))
 
     return sqrt(EightPiGOver3*( rhoxOverOmegaxh2*( ommh2*a**(-3) + omkh2*a**(-2) + omvh2 ) + Nphotoneff*rhogamma0*a**(-4)+ Nnu_massive*rhonu ))
     
@@ -131,8 +134,10 @@ def rhoredshift(a, ae, Te, m):
     a  is scale factor at epoch for which rho is desired
        output:  rho (in units of ev^4)
     """
-#    if ae/a*Te < 0.01*m: rho=1./(8.*pi**(3./2.))*exp(-m/Te)*m*(2*m*Te)**(1.5)*(ae/a)**3
-    integral = quad(lambda x: x**2*sqrt(x**2*(ae/a)**2+m**2)/(exp(sqrt(x**2+m**2)/Te)+1.0),0.0, inf)[0]
+    def integrand(x,a,ae,Te,m):
+        return inline('return_val = x*x*sqrt(x*x*(ae/a)*(ae/a)+m*m)/(exp(sqrt(x*x+m*m)/Te)+1.0);',['x','ae','a','Te','m'])
+        
+    integral = quad(lambda x: integrand(x,a,ae,Te,m),0.0,inf,epsrel=0.01)[0]
     return 1./(2.*pi**2)*(ae/a)**3*integral
 
 
