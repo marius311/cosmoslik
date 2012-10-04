@@ -2,6 +2,8 @@ import pkgutil, inspect, sys, os, socket
 from multiprocessing import Process, Pipe, Queue
 import threading
 
+no_subproc = False
+
 class CosmoSlikPlugin(object):
 
     pass
@@ -63,7 +65,8 @@ class Deriver(CosmoSlikPlugin):
         raise NotImplementedError('Implement Deriver.add_derived')
     
     
-class SubprocessExtension(object):
+    
+def SubprocessExtension(module_name,globals):
     """
     This imports a module and runs all of its code in a subprocess.
     Its meant to be used by CosmoSlik plugins which load 
@@ -77,6 +80,16 @@ class SubprocessExtension(object):
     
         X = SubprocessExtension('X',globals())
     """
+
+    if no_subproc:
+        exec ('from %s import %s \n'
+              'mod = %s')%(module_name,module_name,module_name) in globals, locals()
+        return mod
+    else:
+        return _SubprocessExtension(module_name,globals)
+    
+    
+class _SubprocessExtension(object):
     
     def check_recv(self):
         r = [None]
@@ -125,7 +138,7 @@ class SubprocessExtension(object):
         self._attrs = self.check_recv()
         
     def __getattribute__(self, attr):
-        super_getattr = super(SubprocessExtension,self).__getattribute__
+        super_getattr = super(_SubprocessExtension,self).__getattribute__
         try:
             return super_getattr(attr)
         except AttributeError:
