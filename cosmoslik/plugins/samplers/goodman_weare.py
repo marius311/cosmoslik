@@ -5,7 +5,6 @@ import cosmoslik.chains as chains
 from emcee.ensemble import EnsembleSampler
 from numpy.random import multivariate_normal
 from cosmoslik.plugins import Sampler
-from mpi4py import MPI
 
 
 class goodman_weare(Sampler):
