@@ -11,6 +11,7 @@ parser.add_argument('--build',nargs='?',metavar='<modules>',default=False,help='
 parser.add_argument('--clean',nargs='?',metavar='<modules>',default=False,help='run clean for a module (default: all modules)')
 parser.add_argument('-n',nargs=1,metavar='<# of chains>',default=False,help='run multiple chains with MPI')
 parser.add_argument('--qsub',action='store_true',default=False,help='submit via qsub')
+parser.add_argument('--dict',nargs=1,metavar='<dict>',help='specify parameter directly via Python dict')
 parser.add_argument('--traceback',action='store_true',default=False,help='print out tracebacks on error messages')
 
 def main(args):
@@ -86,7 +87,9 @@ def main(args):
         else:
             for _ in cosmoslik.sample(args['params.ini'][0]): pass
 
-
+    elif args['dict']:
+        print args
+        for _ in cosmoslik.sample(eval(sys.stdin.read())): pass
 
 if not sys.argv[1:]: parser.print_help()
 else:
