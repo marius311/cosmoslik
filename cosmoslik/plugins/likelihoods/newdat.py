@@ -99,7 +99,7 @@ class newdat(Likelihood):
         cl_model = {}
         for x in self.xs:
             if x in self.bands.keys():
-                cl_model[x] = model['cl_%s'%x]
+                cl_model[x] = model['cl_%s'%x].copy()
                 if len(cl_model[x]) < self.lmax: raise Exception('Newdat likelihood needs cl_%s to lmax=%i'%(x,self.lmax))
                 cl_model[x] += model[self.egfs]('cl_%s'%x, fluxcut=self.fluxcut, freqs=self.freqs, lmax=len(cl_model[x]))
                 
