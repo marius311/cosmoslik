@@ -22,7 +22,13 @@ def lnl(x,p):
         #Evaluate models and call likelihoods
         p['_model'] = ModelDict()
         for m in p['_models'].values(): p['_model'].update(m.get(p,p['_models_required']))
-        return (sum(takewhile(lambda x: not isinf(x), (l.lnl(p,p['_model'].for_module(l)) for l in p['_likelihoods'].values()))),p)
+        tot_lnl = 0
+        for l in p['_likelihoods'].values():
+            lnl = l.lnl(p,p['_model'].for_module(l))
+            tot_lnl += lnl
+            if isinf(lnl): break
+            
+        return tot_lnl,p
 
 
 def sample(paramfile,**kwargs):
