@@ -1,7 +1,6 @@
-from operator import __add__
-from numpy import mean, sqrt, diag, inf, std, loadtxt
+from numpy import mean, sqrt, diag, inf, std, loadtxt, isinf
 from collections import namedtuple
-from itertools import product, chain
+from itertools import product, chain, takewhile
 import mpi, re, os, sys
 import params, plugins
 from plugins.samplers.inspector import inspect
@@ -23,7 +22,7 @@ def lnl(x,p):
         #Evaluate models and call likelihoods
         p['_model'] = ModelDict()
         for m in p['_models'].values(): p['_model'].update(m.get(p,p['_models_required']))
-        return (sum(l.lnl(p,p['_model'].for_module(l)) for l in p['_likelihoods'].values()),p)
+        return (sum(takewhile(lambda x: not isinf(x), (l.lnl(p,p['_model'].for_module(l)) for l in p['_likelihoods'].values()))),p)
 
 
 def sample(paramfile,**kwargs):
