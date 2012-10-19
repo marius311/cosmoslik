@@ -5,7 +5,7 @@ import mpi, re, os, sys
 import params, plugins
 from plugins.samplers.inspector import inspect
 
-__all__ = ['lnl','sample','build','inspect']
+__all__ = ['lnl','sample','build','inspect','init']
 
 def lnl(x,p):
     
@@ -31,13 +31,12 @@ def lnl(x,p):
         return tot_lnl,p
 
 
-def sample(paramfile,**kwargs):
+def init(paramfile,**kwargs):
     p=params.load_ini(paramfile,**kwargs)
 
     #Import the various modules
     for k in ['likelihoods','models','derivers','samplers']:
-        p['_%s'%k] = {m:plugins.get_plugin('%s.%s'%(k,m))() for m in p[k].split()}
-
+        p['_%s'%k] = {m:plugins.get_plugin('%s.%s'%(k,m))() for m in p.get(k,'').split()}
 
     #Initialize modules
     for k in ['likelihoods','models','derivers','samplers']:
@@ -51,10 +50,16 @@ def sample(paramfile,**kwargs):
     for l in p['_likelihoods'].values():
         for k, v in l.get_extra_params(p).items(): 
             p.setdefault(l.__class__.__name__).add_sampled_param(k,*v)
+    p['_cov'] = initialize_covariance(p)
+    return p
+    
+
+def sample(paramfile,**kwargs):
+    p = init(paramfile,**kwargs)
+
     sampled = p.get_all_sampled().keys()
     outputted = sampled + [(k,) for k in p.get('derived','').split()]
-    p['_cov'] = initialize_covariance(p)
-    
+
     #Prep output file
     if 'output_file' in p:
         f = open(p['output_file'],'w')
