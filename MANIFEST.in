@@ -1,4 +1,0 @@
-include cosmoslik.py
-include README.html README.rst
-include doc/*
-graft doc/_build/html
