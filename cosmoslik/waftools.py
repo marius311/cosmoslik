@@ -1,13 +1,18 @@
-import os.path as osp
-from waflib.Utils import to_list
+import os.path as osp, numpy
+
+def to_nodes(ctx,sth):
+    if isinstance(sth,str): sth = sth.split()
+    try: iter(sth)
+    except: sth=[sth]
+    return [ctx.path.make_node(s) if isinstance(s,str) else s for s in sth]
+
 
 def fpreproc(bld,source):
     """
     Pre-process some Fortran files using the -E option before feeding them into waf.
     """
     ppfs = []
-    for f in to_list(source): 
-        if isinstance(f,str): f=bld.path.make_node(f)
+    for f in to_nodes(bld,source): 
         if f.suffix()=='.F90': 
             ppf = f.change_ext('.f90')
             bld(rule='${FC} -E ${SRC} > ${TGT}', source=f, target=ppf)
@@ -17,7 +22,7 @@ def fpreproc(bld,source):
     return ppfs if len(ppfs)>1 else ppfs[0]
 
 
-def build_f2py(bld, source, module_name, extra_sources):
+def build_f2py(bld, source, module_name, extra_sources, **kwargs):
     """
     Build an f2py extension with waf.
     
@@ -48,9 +53,11 @@ def build_f2py(bld, source, module_name, extra_sources):
                 'fortranobject.c '
                 '{MODULENAME}module.c '
                 '{MODULENAME}-f2pywrappers2.f90').format(SRC=source,
-                                                         MODULENAME=module_name).split() + to_list(extra_sources),
+                                                         MODULENAME=module_name).split() + to_nodes(bld,extra_sources),
         target=module_name, 
-        use='PYEXT')
+        includes=[bld.root.find_node(numpy.get_include())]+to_nodes(bld,kwargs.pop('includes',[])),
+        use='PYEXT',
+        **kwargs)
 
 def config_f2py(conf):
     conf.load('compiler_c compiler_fc')

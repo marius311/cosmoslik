@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+
 APPNAME = 'cosmoslik'
 VERSION = '0.1'
 

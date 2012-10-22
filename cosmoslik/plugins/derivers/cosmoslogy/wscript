@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-# encoding: utf-8
 
 from cosmoslik.waftools import build_f2py, config_f2py, opt_f2py
 
