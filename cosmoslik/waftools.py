@@ -1,4 +1,5 @@
 import os.path as osp, numpy
+from waflib.Utils import to_list
 
 def to_nodes(ctx,sth):
     if isinstance(sth,str): sth = sth.split()
@@ -22,7 +23,7 @@ def fpreproc(bld,source):
     return ppfs if len(ppfs)>1 else ppfs[0]
 
 
-def build_f2py(bld, source, module_name, extra_sources, **kwargs):
+def build_f2py(bld, source, module_name, extra_sources, skip=None, only=None, **kwargs):
     """
     Build an f2py extension with waf.
     
@@ -35,7 +36,12 @@ def build_f2py(bld, source, module_name, extra_sources, **kwargs):
     """
     
     #use f2py to create the wrapper
-    bld(rule='${{F2PY}} ${{SRC}} -m {MODULENAME} --build-dir ${{TGT[0].parent.abspath()}}'.format(MODULENAME=module_name), 
+    skip = 'skip: %s'%' '.join(to_list(skip)) if skip is not None else ''
+    only = 'only: %s'%' '.join(to_list(only)) if only is not None else ''
+    bld(rule=('${{F2PY}} --build-dir ${{TGT[0].parent.abspath()}} --quiet '
+              '-m {MODULENAME} ${{SRC}} {ONLY} {SKIP}').format(MODULENAME=module_name,
+                                                               ONLY=only,
+                                                               SKIP=skip), 
         source=source, 
         target='{MODULENAME}module.c {MODULENAME}-f2pywrappers2.f90'.format(MODULENAME=module_name))
 

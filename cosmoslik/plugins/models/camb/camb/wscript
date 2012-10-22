@@ -18,4 +18,5 @@ def build(bld):
     build_f2py(bld,
                source=wrapper,
                module_name='pycamb',
+               skip='get_mpk',
                extra_sources=cambfiles)
