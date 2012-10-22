@@ -40,7 +40,7 @@ class cosmology(Deriver):
         Given a dictionary of cosmological parameters attempts to add as many
         aliases and derived parameters as possible
         """
-        from hubble_theta import hubble2theta, theta2hubble
+        from hubble_theta_wrap import hubble2theta, theta2hubble
         add_aliases(aliases,p)
         if 'theta' in p:
             if all(k in p for k in ['ombh2','omch2', 'omk', 'omnuh2', 'w', 'Nnu_massless', 'Nnu_massive']):
