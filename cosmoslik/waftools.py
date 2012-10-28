@@ -62,8 +62,9 @@ def build_f2py(bld, source, module_name, extra_sources, skip=None, only=None, **
                                                          MODULENAME=module_name).split() + to_nodes(bld,extra_sources),
         target=module_name, 
         includes=[bld.root.find_node(numpy.get_include())]+to_nodes(bld,kwargs.pop('includes',[])),
-        use='PYEXT',
+        use=['PYEXT']+to_list(kwargs.pop('use',[])),
         **kwargs)
+    
 
 def config_f2py(conf):
     conf.load('compiler_c compiler_fc')

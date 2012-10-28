@@ -14,4 +14,5 @@ def build(bld):
                source='pywmap.f90',
                module_name='pywmap',
                extra_sources=wmapfiles,
-               includes=bld.path.find_node('wmap'))
+               includes=bld.path.find_node('wmap'),
+               use='LAPACK CFITSIO')
