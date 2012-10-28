@@ -17,9 +17,9 @@ parser.add_argument('--traceback',action='store_true',default=False,help='print 
 def main(args):
     if args['list']:
         import plugins
-        print "Found the following modules in 'cosmoslik.plugins':"
+        print "Found the following modules in 'cosmoslik_plugins':"
         for (name,_,typ) in plugins.get_all_plugins():
-            print '  %s'%'.'.join(name.split('.')[2:])
+            print '  %s'%'.'.join(name.split('.')[1:])
         print "See 'cosmoslik.py --doc <module>' for more information on a given module."
         
     elif args['doc'] or args['html_doc']:

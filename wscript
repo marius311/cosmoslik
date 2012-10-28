@@ -25,7 +25,7 @@ from cStringIO import StringIO
         
 
 def recurse(ctx):
-    for f in ctx.path.ant_glob('cosmoslik/**/wscript'): ctx.recurse(f.parent.abspath())
+    for f in ctx.path.ant_glob('cosmoslik_plugins/**/wscript'): ctx.recurse(f.parent.abspath())
     
 def options(opt):
     recurse(opt)
@@ -77,6 +77,20 @@ def build(bld):
     bld(features='py',source=bld.path.ant_glob('cosmoslik/**/*.py',excl='**/*waf*'),install_from='.')
 
 
+
+def develop(bld):
+    from setuptools import setup, find_packages
+    setup(
+        name='cosmoslik',
+        version='0.1.0',
+        author='Marius Millea',
+        author_email='mmillea@ucdavis.edu',
+        packages=find_packages(),
+    #    namespace_packages = ['cosmoslik','cosmoslik.plugins'],
+        description='USPype plugins for Cosmoslik.',
+    )
+    
+    
 """
 Subclass C/FC program so that LINKFLAGS get put at the end
 """
