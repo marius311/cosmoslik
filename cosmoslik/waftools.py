@@ -23,7 +23,7 @@ def fpreproc(bld,source):
     return ppfs if len(ppfs)>1 else ppfs[0]
 
 
-def build_f2py(bld, source, module_name, extra_sources, skip=None, only=None, **kwargs):
+def build_f2py(bld, source, module_name, extra_sources, skip=None, only=None, symlink=True, **kwargs):
     """
     Build an f2py extension with waf.
     
@@ -32,7 +32,10 @@ def build_f2py(bld, source, module_name, extra_sources, skip=None, only=None, **
     
     source - the name of the file being wrapped
     module_name - the name of the module being produced
-    extra-sources - other things to compile along with the extension
+    extra-sources - other things to compile and link along with the extension
+    skip/only - skip/only wrap certain functions
+    symlink - symlink the library into the source folder after building
+    **kwargs - passed to the build command
     """
     
     #use f2py to create the wrapper
@@ -63,21 +66,24 @@ def build_f2py(bld, source, module_name, extra_sources, skip=None, only=None, **
         target=module_name, 
         includes=[bld.root.find_node(numpy.get_include())]+to_nodes(bld,kwargs.pop('includes',[])),
         use=['PYEXT']+to_list(kwargs.pop('use',[])),
+        install_path=kwargs.pop('install_path',None) or osp.join('${PYTHONDIR}',bld.path.path_from(bld.root.find_node(bld.top_dir))),
         **kwargs)
+    
+    if symlink:
+        bld.symlink_as(bld.path.get_src().make_node('%s.so'%module_name).abspath(),
+                       bld.path.get_bld().make_node('%s.so'%module_name).abspath())
     
 
 def config_f2py(conf):
-    conf.load('compiler_c compiler_fc')
+    conf.load('compiler_c compiler_fc python')
     conf.check(features='c', cflags=['-fPIC'])
     conf.check(features='fc', cflags=['-fPIC'])
     conf.env.CFLAGS = ['-fPIC']
     conf.env.FCFLAGS = ['-fPIC']
-    conf.load('python')
     conf.check_python_headers()
     conf.env.fcshlib_PATTERN = '%s.so'
     conf.find_program('f2py',var='F2PY')
     
 def opt_f2py(opt):
-    opt.load('compiler_c compiler_fc')
-    opt.load('python')
+    opt.load('compiler_c compiler_fc python')
 

@@ -64,16 +64,17 @@ def configure(conf):
                 ('LINKFLAGS_CFITSIO','-lcfitsio')]:
         conf.env.append_value(x, to_list(conf.environ.get(x,d or [])))
 
-    for lib, func in [('lapack','dpotrf_'),('blas','ddot_')]:
-        conf.check_library_func(lib,func,'LAPACK')
-    conf.check_library_func('cfitsio','ftopen_','CFITSIO')
+    for lib, func, use in [('lapack','dpotrf_','LAPACK'),
+                           ('blas','ddot_','LAPACK'),
+                           ('cfitsio','ftopen_','CFITSIO')]:
+        conf.check_library_func(lib,func,use=use)
 
     recurse(conf)
 
     
 def build(bld):
     recurse(bld)
-    bld(features='py',source=bld.path.ant_glob('cosmoslik/**/*.py',excl='**/*waf*'))
+    bld(features='py',source=bld.path.ant_glob('cosmoslik/**/*.py',excl='**/*waf*'),install_from='.')
 
 
 """
