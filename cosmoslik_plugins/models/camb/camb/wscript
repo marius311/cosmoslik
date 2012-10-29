@@ -1,4 +1,4 @@
-from cosmoslik.waftools import build_f2py, opt_f2py, config_f2py, fpreproc
+from cosmoslik.waf.utils import build_f2py, opt_f2py, config_f2py, fpreproc
 
 def options(opt):
     opt_f2py(opt)
