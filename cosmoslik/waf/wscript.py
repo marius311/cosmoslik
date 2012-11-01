@@ -4,16 +4,16 @@ APPNAME = 'cosmoslik'
 VERSION = '0.1'
 
 
-import sys, os.path as osp
+import sys, os.path as osp, os
 from waflib.Utils import to_list
 from waflib.Configure import conf
 from ConfigParser import RawConfigParser
 from cStringIO import StringIO
-
+from setuptools.command import easy_install
 
 #def dist(ctx):
 #    ctx.algo = 'tar.gz' 
-#    #ctx.excl = ' **/.waf-1* **/*~ **/*.pyc **/*.swp **/.lock-w* **/.git*' 
+#    ctx.excl = ' **/.waf-1* **/*~ **/*.pyc **/*.swp **/.lock-w* **/.git*' 
 
 #def update_enivorn(ctx,ini):
 #    ini = open(ini).read()
@@ -58,6 +58,12 @@ def configure(conf):
     conf.load('python compiler_c')
     conf.check_python_version((2,7))
     conf.check_python_module('numpy','ver >= num(1,5)')
+    try:
+        conf.check_python_module('pypico','ver == num(3,1,0)')
+    except: 
+        args =sys.argv[2:]+["-U","pypico==3.1.0"]
+        print args
+        easy_install.main(args)
 
     
     for x,d in [('LINKFLAGS',None),
@@ -82,15 +88,14 @@ def build(bld):
 def develop(bld):
     from setuptools import setup, find_packages
     setup(
-        name='cosmoslik',
-        version='0.1.0',
+        name=APPNAME,
+        version=VERSION,
         author='Marius Millea',
         author_email='mmillea@ucdavis.edu',
         packages=find_packages(),
-    #    namespace_packages = ['cosmoslik','cosmoslik.plugins'],
-        description='USPype plugins for Cosmoslik.',
+        description='A cosmologial sampler of likelihooods.',
     )
-    
+
     
 """
 Subclass C/FC program so that LINKFLAGS get put at the end

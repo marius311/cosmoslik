@@ -14,7 +14,7 @@ Contents:
 .. toctree::
     :maxdepth: 1
 
-    Installing <install>
+    Installation <install>
     The Ini File <params>
     Chains <chains>
     Create plugins <create>
