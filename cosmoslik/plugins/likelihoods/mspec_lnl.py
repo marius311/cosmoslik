@@ -1,6 +1,6 @@
 import mspec as M
 from mspec.utils import pairs
-from numpy import dot, arange, product, zeros, load, exp, vstack, hstack, ones
+from numpy import dot, arange, product, zeros, load, exp, vstack, hstack, ones, loadtxt, array
 from scipy.linalg import cho_solve, cholesky
 from cosmoslik.plugins import Likelihood
 
@@ -28,8 +28,13 @@ class mspec_lnl(Likelihood):
         if 'beam' in self.mp:
             self.beampca = M.SymmetricTensorDict()
             for k,v in self.mp['beam'].items():
-                self.beampca[tuple(k.split('_'))] = load(v['file']) 
-        
+                self.beampca[tuple(k.split('_'))] = load(v['file'])
+            if ('beam','cov') in self.mp:
+                with open(self.mp['beam','cov']) as f:
+                    self.beamcov = (f.readline().replace('#','').split(),loadtxt(f))
+            else:
+                self.beamcov = None
+                
         self.per_freq_egfs = M.SymmetricTensorDict(self.mp.get('per_freq_egfs',{}))
         
         self.fluxcut = self.mp.get('fluxcut')
@@ -191,13 +196,17 @@ class mspec_lnl(Likelihood):
         bc = {}
         for k,v in p['mspec','beam'].items():
             ps = tuple(k.split('_'))
-            bc[ps] = 10**(dot(self.beampca[ps],[v.get('pca%.2i'%i,0) for i in range(self.beampca[ps].shape[1])]))
+            bc[ps] = exp(dot(self.beampca[ps],[v.get('pca%.2i'%i,0) for i in range(self.beampca[ps].shape[1])]))
         return bc
         
     def beam_lnl(self,p):
-        return sum(v.get('pca%.2i'%i,0)**2/2. 
-                   for k,v in p['mspec'].get('beam',{}).items()
-                   for i in range(self.beampca[tuple(k.split('_'))].shape[1]))
+        if self.beamcov:
+            pca_vec = array([p[('mspec','beam')+k.split('.')] for k in self.beamcov[0]])
+            return dot(pca_vec,cho_solve(self.beamcov,pca_vec))/2
+        else:
+            return sum(v.get('pca%.2i'%i,0)**2/2. 
+                       for k,v in p['mspec'].get('beam',{}).items()
+                       for i in range(self.beampca[tuple(k.split('_'))].shape[1]))
     
     
     def lnl(self,p,model):
