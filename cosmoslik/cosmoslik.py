@@ -32,6 +32,13 @@ def lnl(x,p):
 
 
 def init(paramfile,**kwargs):
+
+    #cd into parameter directory to correctly resolve relative filename
+    curdir = os.curdir
+    os.chdir(os.path.dirname(os.path.abspath(paramfile)))
+    paramfile = os.path.basename(paramfile)
+    
+    #load ini
     p=params.load_ini(paramfile,**kwargs)
 
     #Import the various modules
@@ -51,6 +58,11 @@ def init(paramfile,**kwargs):
         for k, v in l.get_extra_params(p).items(): 
             p.setdefault(l.__class__.__name__).add_sampled_param(k,*v)
     p['_cov'] = initialize_covariance(p)
+
+    
+    #cd back into original directory
+    if 'output_file' in p: p['output_file'] = os.path.abspath(p['output_file'])
+    os.chdir(curdir)
     return p
     
 

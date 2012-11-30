@@ -9,7 +9,7 @@ class bbn_consistency(Deriver):
         self.rep = bisplrep(*loadtxt(StringIO(dat)).T)
     
     def add_derived(self,p):    
-        p['helium_fraction'] = bisplev(p['ombh2'],p['massless_neutrinos']+p['massive_neutrinos']-3.046,self.rep)
+        p['helium_fraction'] = bisplev(p['ombh2'],p['Nnu_massless']+p['Nnu_massive']-3.046,self.rep)
 
 
 dat = \

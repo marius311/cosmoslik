@@ -31,7 +31,7 @@ class bao(Likelihood):
         self.Dv_over_rs_cov=(diag([0.13,0.17,0.22,0.65])*rs_rescale)**2      
 
     def get_Dv_over_rs_model(self,p,model=None):
-        rs = p['rs_drag']
+        rs = r_s(p['z_drag'],allkw=p,**p)
         return [Dv(z=z, allkw=p, **p)/rs for z in self.zvec]
         
     def plot(self,p,model=None):
@@ -44,10 +44,7 @@ class bao(Likelihood):
 
     def lnl(self,p,model):
         
-        rs = p['rs_drag']
-
-        Dv_over_rs_model = [Dv(z=z, allkw=p, **p)/rs for z in self.zvec]
-        
+        Dv_over_rs_model = self.get_Dv_over_rs_model(p) 
         dx = self.Dv_over_rs_data - Dv_over_rs_model
         return dot(dx,dot(inv(self.Dv_over_rs_cov),dx))/2
         
@@ -135,7 +132,8 @@ def rhoredshift(a, ae, Te, m):
        output:  rho (in units of ev^4)
     """
     def integrand(x,a,ae,Te,m):
-        return inline('return_val = x*x*sqrt(x*x*(ae/a)*(ae/a)+m*m)/(exp(sqrt(x*x+m*m)/Te)+1.0);',['x','ae','a','Te','m'])
+        m=float(m) #workaround for inline (bug?)
+        return inline('return_val = (x*x)*sqrt((x*x)*(ae/a)*(ae/a)+(m*m))/(exp(sqrt((x*x)+(m*m))/Te)+1.0);',['x','ae','a','Te','m'])
         
     integral = quad(lambda x: integrand(x,a,ae,Te,m),0.0,inf,epsrel=0.01)[0]
     return 1./(2.*pi**2)*(ae/a)**3*integral

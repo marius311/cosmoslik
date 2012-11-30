@@ -12,12 +12,16 @@ class mspec_lnl(Likelihood):
     def init(self,p):
         if 'mspec' not in p: raise Exception('Expected an [mspec] section in the ini file.')
         
-        self.mp = M.read_Mspec_ini(p['mspec'])
+        if 'mspec_ini' in p['mspec']: 
+            self.signal = M.load_signal(p['mspec','mspec_ini'])
+            self.mp = p['mspec']
+            self.mp.update(M.read_Mspec_ini(p['mspec','mspec_ini']))
+        else: 
+            self.mp = M.read_Mspec_ini(p['mspec'])
+            self.signal = M.load_signal(self.mp)
         
-        self.signal = M.load_signal(self.mp)
-        
-        if 'rescale' in p['mspec']: self.signal = self.signal.rescaled(p['mspec'].get('rescale',1))
-        if p['mspec'].get('to_dl'): self.signal = self.signal.dl()
+        if 'rescale' in self.mp: self.signal = self.signal.rescaled(self.mp['rescale'])
+        if self.mp.get('to_dl'): self.signal = self.signal.dl()
         
         self.cleaning = self.mp['cleaning'] if 'cleaning' in self.mp else {m:[(m,1)] for m in self.signal.get_maps()}
         
@@ -83,6 +87,7 @@ class mspec_lnl(Likelihood):
         Build an Mspec PowerSpectra object which holds CMB + foreground C_ell's
         for all the required frequencies 
         """
+
         if model is None: model = p['_model']
         model_sig = M.PowerSpectra(ells=arange(self.lmax))
             

@@ -169,4 +169,3 @@ def process_parameters(p,paramfile=None):
     #Automatic chain naming
     if 'output_file' in p and os.path.isdir(p['output_file']) and isinstance(paramfile,str): 
         p['output_file'] = os.path.join(p['output_file'],os.path.basename(paramfile).replace('.ini','.chain'))
-

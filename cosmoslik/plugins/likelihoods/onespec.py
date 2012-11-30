@@ -12,9 +12,10 @@ class onespec(Likelihood):
         self.spec[array(ells,dtype=int)] = spec
         cov = load(p['covariance']) if p['covariance'].endswith('npy') else loadtxt(p['covariance'])
         self.errorbars = sqrt(diag(cov))
-        self.lrange = p['lrange']
+        self.lrange = array(p['lrange'])
         self.lslice = slice(*self.lrange)
-        self.cho_cov = cho_factor(cov[self.lslice,self.lslice])
+        s = slice(*(self.lrange - ells[0]))
+        self.cho_cov = cho_factor(cov[s,s])
         self.egfs_kwargs = p['egfs_kwargs']
         
     def get_required_models(self, model):
