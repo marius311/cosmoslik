@@ -29,9 +29,9 @@ class mspec_lnl(Likelihood):
             self.beampca = M.SymmetricTensorDict()
             for k,v in self.mp['beam'].items():
                 self.beampca[tuple(k.split('_'))] = load(v['file'])
-            if ('beam','cov') in self.mp:
-                with open(self.mp['beam','cov']) as f:
-                    self.beamcov = (f.readline().replace('#','').split(),loadtxt(f))
+            if 'beamcov' in self.mp:
+                with open(self.mp['beamcov']) as f:
+                    self.beamcov = (f.readline().replace('#','').split(),(cholesky(loadtxt(f)),False))
             else:
                 self.beamcov = None
                 
@@ -201,8 +201,8 @@ class mspec_lnl(Likelihood):
         
     def beam_lnl(self,p):
         if self.beamcov:
-            pca_vec = array([p[('mspec','beam')+k.split('.')] for k in self.beamcov[0]])
-            return dot(pca_vec,cho_solve(self.beamcov,pca_vec))/2
+            pca_vec = array([p[('mspec','beam')+tuple(k.split('.'))] for k in self.beamcov[0]])
+            return dot(pca_vec,cho_solve(self.beamcov[1],pca_vec))/2
         else:
             return sum(v.get('pca%.2i'%i,0)**2/2. 
                        for k,v in p['mspec'].get('beam',{}).items()
