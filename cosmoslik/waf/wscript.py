@@ -59,9 +59,9 @@ def configure(conf):
     conf.check_python_version((2,7))
     conf.check_python_module('numpy','ver >= num(1,5)')
     try:
-        conf.check_python_module('pypico','ver == num(3,1,0)')
+        conf.check_python_module('pypico','ver >= num(3,1,0)')
     except: 
-        args =sys.argv[2:]+["-U","pypico==3.1.0"]
+        args = sys.argv[2:]+["-U","pypico>=3.1.0"]
         print args
         easy_install.main(args)
 
