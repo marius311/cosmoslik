@@ -213,8 +213,10 @@ def get_covariance(data,weights=None):
 
 
 def likegrid(chains, params=None, 
-             colors=['b','orange','k'], filled=True,
-             nbins1d=30, nbins2d=20, 
+             lims=None, ticks=None,
+             default_chain=0,
+             colors=None, filled=True,
+             nbins1d=30, nbins2d=20,
              labels=None,
              fig=None,
              size=2,
@@ -229,19 +231,44 @@ def likegrid(chains, params=None,
     
     chains : 
         one or a list of `Chain` objects
+        
+    default_chain, optional :
+        the chain used to get default parameters names, axes limits, and ticks 
+        either an index into chains or a `Chain` object (default: chains[0])
+        
     params, optional : 
-        list of parameter names which to include of None for 
-        all parameters (default: None)
+        list of parameter names which to show 
+        (default: all parameters from default_chain)
+        
+    lims, optional :
+        a dictionary mapping parameter names to (min,max) axes limits
+        (default: +/- 4 sigma from default_chain)
+        
+    ticks, optional :
+        a dictionary mapping parameter names to list of [ticks]
+        (default: [-2, 0, +2] sigma from default_chain)
+        
     fig, optional :
         figure of figure number in which to plot (default: figure(0))
+        
+    size, optional :
+        size in inches of one plot (default: 2)
+        
     colors, optional : 
         colors to cycle through for plotting
+        
     filled, optional :
         whether to fill in the contours (default: True)
+        
     labels, optional :
         list of names for a legend
+        
+    legend_loc, optional :
+        (x,y) location of the legend (coordinates scaled to [0,1]) 
+        
     nbins1d, optional : 
         number of bins for 1d plots (default: 30)
+        
     nbins2d, optional :
         number of bins for 2d plots (default: 20)
     """
@@ -251,19 +278,20 @@ def likegrid(chains, params=None,
     if params==None: params = sorted(reduce(lambda x,y: set(x)&set(y), [c.params() for c in chains]))
     if param_name_mapping is None: param_name_mapping = {}
     if size is not None: fig.set_size_inches(*([size*len(params)]*2))
-    colors=colors[:len(chains)]
+    if colors is None: colors=['b','orange','k','m','cyan']
     fig.subplots_adjust(hspace=0,wspace=0)
+    
+    c=chains[default_chain] if isinstance(default_chain,int) else default_chain
+    lims = dict({p:(max(min(c[p]),mean(c[p])-4*std(c[p])),min(max(c[p]),mean(c[p])+4*std(c[p]))) for p in params},**(lims if lims is not None else {}))
+    ticks = dict({p:[t for t in ts if lims[p][0]<=t<=lims[p][1]] for (p,ts) in zip(params,(c.mean(params)+c.std(params)*transpose([[-2,0,2]])).T)},**(ticks if ticks is not None else {}))
 
-    c=chains[0]
-    lims = [(max(min(c[p]),mean(c[p])-4*std(c[p])),min(max(c[p]),mean(c[p])+4*std(c[p]))) for p in params]
-    ticks = [[t for t in ts if l[0]<=t<=l[1]] for (ts,l) in zip((c.mean(params)+c.std(params)*transpose([[-2,0,2]])).T ,lims)]
     n=len(params)
     for (i,p1) in enumerate(params):
         for (j,p2) in enumerate(params):
             if (i<=j):
                 ax=fig.add_subplot(n,n,j*n+i+1)
-                ax.set_xlim(*lims[i])
-                ax.set_xticks(ticks[i])
+                ax.set_xticks(ticks[p1])
+                ax.set_xlim(*lims[p1])
                 if (i==j): 
                     for (ch,col) in zip(chains,colors): 
                         if p1 in ch: ch.like1d(p1,nbins=nbins1d,color=col,ax=ax)
@@ -272,18 +300,18 @@ def likegrid(chains, params=None,
                 elif (i<j): 
                     for (ch,col) in zip(chains,colors): 
                         if p1 in ch and p2 in ch: ch.like2d(p1,p2,filled=filled,nbins=nbins2d,color=col,ax=ax)
-                    ax.set_ylim(*lims[j])
-                    ax.set_yticks(ticks[j])
+                    ax.set_yticks(ticks[p2])
+                    ax.set_ylim(*lims[p2])
                         
                 if i==0: 
                     ax.set_ylabel(param_name_mapping.get(p2,p2),size=param_label_size)
-                    ax.set_yticklabels(['%.3g'%t for t in ticks[j]])
+                    ax.set_yticklabels(['%.3g'%t for t in ticks[p2]])
                 else: 
                     ax.set_yticklabels([])
                 
                 if j==n-1: 
                     ax.set_xlabel(param_name_mapping.get(p1,p1),size=param_label_size)
-                    ax.set_xticklabels(['%.3g'%t for t in ticks[i]])
+                    ax.set_xticklabels(['%.3g'%t for t in ticks[p1]])
                 else: 
                     ax.set_xticklabels([])
                     
