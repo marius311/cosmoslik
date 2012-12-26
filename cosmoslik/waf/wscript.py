@@ -24,9 +24,17 @@ from setuptools.command import easy_install
 #        ctx.environ[k.upper()] = v
         
 
-def recurse(ctx):
+def recurse(ctx, keep_going=False):
+    success, fail = [],[]
     for f in ctx.path.ant_glob('cosmoslik_plugins/**/wscript'): 
-        ctx.recurse(f.parent.abspath())
+        try:
+            ctx.recurse(f.parent.abspath())
+            success.append(f.parent)
+        except: 
+            if keep_going: fail.append(f.parent)
+            else: raise
+    return success,fail
+
     
 def options(opt):
     recurse(opt)
@@ -53,8 +61,6 @@ def check_library_func(conf, library, function, use, envvars=None):
 
 def configure(conf):
     conf.env.PYTHON = sys.executable
-#    if osp.exists('setup.ini'): update_enivorn(conf, 'setup.ini')
-    
     conf.load('python compiler_c')
     conf.check_python_version((2,7))
     conf.check_python_module('numpy','ver >= num(1,5)')
@@ -76,13 +82,30 @@ def configure(conf):
                            ('cfitsio','ftopen_','CFITSIO')]:
         conf.check_library_func(lib,func,use=use)
 
-    recurse(conf)
 
+    success, fail = recurse(conf,keep_going=True)
+    
+    if len(success)>0:
+        sys.stdout.write('\033[1m')
+        print "The following plugins are ready to build:"
+        sys.stdout.write('\033[92m')
+        for f in success: print "  "+f.path_from(conf.srcnode.find_node("cosmoslik_plugins/"))
+        sys.stdout.write('\033[0m')
+    if len(fail)>0:
+        sys.stdout.write('\033[1m')
+        print "The following plugins can't be built (ignore if not needed):"
+        sys.stdout.write('\033[93m')
+        for f in fail: print "  "+f.path_from(conf.srcnode.find_node("cosmoslik_plugins/"))
+        sys.stdout.write('\033[0m')
+        print "Run './waf configure --target <plugin>' to see why a given plugin can't build."
+
+    conf.env.configured_plugins = [f.path_from(conf.srcnode) for f in success]
+    
     
 def build(bld):
-    recurse(bld)
+    import ipdb; ipdb.set_trace()
+    for f in bld.env.configured_plugins: bld.recurse(f)
     bld(features='py',source=bld.path.ant_glob('cosmoslik*/**/*.py',excl='**/*waf*'),install_from='.')
-
 
 
 def develop(bld):

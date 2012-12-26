@@ -10,6 +10,8 @@ def options(opts): pass
 
 def configure(conf):
     conf.find_program('wget',var='WGET')
+    if conf.exec_command("%s --spider %s"%(conf.env['WGET'],bandpower_url))!=0:
+        conf.fatal("Couldn't download '%s'"%bandpower_url)
     conf.find_program('tar',var='TAR')
     conf.load('python')
     conf.check_python_version()
@@ -21,6 +23,6 @@ def build(bld):
     bld(rule='${TAR} zxf ${SRC} -C '+bld.path.get_bld().abspath(),
         source=bandpower_tgz,
         target=bandpower_files)
-#
+
     for f in bandpower_files:
         bld.install_files(osp.join(bld.env.PYTHONDIR,bld.path.path_from(bld.root.find_node(bld.top_dir)),osp.dirname(f)),f)
