@@ -7,8 +7,6 @@ parser.add_argument('params.ini',nargs='*',help='a parameter file to run')
 parser.add_argument('--list',action='store_true',default=False,help='list available modules')
 parser.add_argument('--doc',nargs=1,metavar='<module>',help='print the documentation for a module')
 parser.add_argument('--html_doc',nargs=1,metavar='<module>',help='open the documentation for a module in a web-browser')
-parser.add_argument('--build',nargs='?',metavar='<modules>',default=False,help='run build script for a module (default: all modules)')
-parser.add_argument('--clean',nargs='?',metavar='<modules>',default=False,help='run clean for a module (default: all modules)')
 parser.add_argument('-n',nargs=1,metavar='<# of chains>',default=False,help='run multiple chains with MPI')
 parser.add_argument('--qsub',action='store_true',default=False,help='submit via qsub')
 parser.add_argument('--dict',nargs=1,metavar='<dict>',help='specify parameter directly via Python dict')
@@ -40,12 +38,6 @@ def main(args):
             webbrowser.open(tmpfile)
 
             
-    elif args['build'] is not False:
-        cosmoslik.build(args['build'])
-        
-    elif args['clean'] is not False:
-        cosmoslik.build(args['clean'],'clean',('cleaned','clean'))
-
     elif args['qsub']:
         from subprocess import Popen, PIPE
         from cosmoslik import params
