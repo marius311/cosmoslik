@@ -23,7 +23,7 @@ def fpreproc(bld,source):
     return ppfs if len(ppfs)>1 else ppfs[0]
 
 
-def build_f2py(bld, source, module_name, extra_sources, skip=None, only=None, symlink=True, **kwargs):
+def build_f2py(bld, source, module_name, extra_sources, skip=None, only=None, symlink=False, **kwargs):
     """
     Build an f2py extension with waf.
     

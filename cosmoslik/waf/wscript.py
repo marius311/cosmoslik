@@ -37,8 +37,9 @@ def recurse(ctx, keep_going=False):
 
     
 def options(opt):
+    opt.add_option('--inplace', action='store_true', default=False,
+                help='install CosmoSlik in this directory')
     recurse(opt)
-    
 
 @conf
 def check_library_func(conf, library, function, use, envvars=None):
@@ -101,24 +102,15 @@ def configure(conf):
 
     conf.env.configured_plugins = [f.path_from(conf.srcnode) for f in success]
     
+    if conf.options.inplace: 
+        conf.env.PYTHONDIR = '.'
+        conf.env.INPLACE = True
     
 def build(bld):
-    import ipdb; ipdb.set_trace()
     for f in bld.env.configured_plugins: bld.recurse(f)
-    bld(features='py',source=bld.path.ant_glob('cosmoslik*/**/*.py',excl='**/*waf*'),install_from='.')
-
-
-def develop(bld):
-    from setuptools import setup, find_packages
-    setup(
-        name=APPNAME,
-        version=VERSION,
-        author='Marius Millea',
-        author_email='mmillea@ucdavis.edu',
-        packages=find_packages(),
-        description='A cosmologial sampler of likelihooods.',
-    )
-
+    if not bld.env.INPLACE:
+        bld(features='py',source=bld.path.ant_glob('cosmoslik*/**/*.py',excl='**/*waf*'),install_from='.')
+    
     
 """
 Subclass C/FC program so that LINKFLAGS get put at the end

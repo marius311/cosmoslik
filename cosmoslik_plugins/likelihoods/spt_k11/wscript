@@ -23,8 +23,8 @@ def build(bld):
         source=bandpower_tgz,
         target=bandpower_files)
 
-    bld.symlink_as(bld.path.get_src().make_node("bandpowers").abspath(),
-                   bld.path.get_bld().make_node("bandpowers").abspath())
+#    bld.symlink_as(bld.path.get_src().make_node("bandpowers").abspath(),
+#                   bld.path.get_bld().make_node("bandpowers").abspath())
     
     for f in bandpower_files:
         bld.install_files(osp.join(bld.env.PYTHONDIR,bld.path.path_from(bld.root.find_node(bld.top_dir)),osp.dirname(f)),f)
