@@ -1,0 +1,18 @@
+#! /usr/bin/env python
+
+from cosmoslik.waf.utils import build_f2py, opt_f2py, config_f2py, fpreproc
+
+def options(opt):
+    opt_f2py(opt)
+
+def configure(conf):
+    config_f2py(conf)
+    
+def build(bld):
+    wmapfiles = fpreproc(bld,bld.path.ant_glob('wmap/*90'))
+    build_f2py(bld,
+               source='pywmap.f90',
+               module_name='pywmap',
+               extra_sources=wmapfiles,
+               includes=bld.path.find_node('wmap'),
+               use='LAPACK CFITSIO')

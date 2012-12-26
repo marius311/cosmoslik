@@ -3,7 +3,7 @@ from collections import namedtuple
 from itertools import product, chain, takewhile
 import mpi, re, os, sys
 import params, plugins
-from plugins.samplers.inspector import inspect
+from cosmoslik_plugins.samplers.inspector import inspect
 
 __all__ = ['lnl','sample','build','inspect','init']
 

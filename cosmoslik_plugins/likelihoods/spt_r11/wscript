@@ -1,0 +1,28 @@
+import os.path as osp
+
+bandpower_url = "http://pole.uchicago.edu/public/data/reichardt11/bandpowers_spt_multif_0809.tar.gz"
+bandpower_tgz = bandpower_url.split('/')[-1]
+bandpower_files = (['spt_multif_0809/spectrum_90_90x150_90x220_150_150x220_220.txt',
+                    'spt_multif_0809/covariance_90_90x150_90x220_150_150x220_220.txt']+
+                   ['spt_multif_0809/window_%i'%i for i in range(1,91)])
+
+def options(opts): pass
+
+def configure(conf):
+    conf.find_program('wget',var='WGET')
+    if conf.exec_command("%s --spider %s"%(conf.env['WGET'],bandpower_url))!=0:
+        conf.fatal("Couldn't download '%s'"%bandpower_url)
+    conf.find_program('tar',var='TAR')
+    conf.load('python')
+    conf.check_python_version()
+    
+def build(bld):
+    bld(rule='${WGET} -P %s %s'%(bld.path.get_bld().abspath(),bandpower_url), 
+        target=bandpower_tgz)
+
+    bld(rule='${TAR} zxf ${SRC} -C '+bld.path.get_bld().abspath(),
+        source=bandpower_tgz,
+        target=bandpower_files)
+
+    for f in bandpower_files:
+        bld.install_files(osp.join(bld.env.PYTHONDIR,bld.path.path_from(bld.root.find_node(bld.top_dir)),osp.dirname(f)),f)
