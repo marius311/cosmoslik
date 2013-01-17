@@ -6,8 +6,6 @@ bandpower_files = (['spt_multif_0809/spectrum_90_90x150_90x220_150_150x220_220.t
                     'spt_multif_0809/covariance_90_90x150_90x220_150_150x220_220.txt']+
                    ['spt_multif_0809/window_%i'%i for i in range(1,91)])
 
-def options(opts): pass
-
 def configure(conf):
     conf.find_program('wget',var='WGET')
     if conf.exec_command("%s --spider %s"%(conf.env['WGET'],bandpower_url))!=0:

@@ -3,7 +3,6 @@
 APPNAME = 'cosmoslik'
 VERSION = '0.1'
 
-
 import sys, os.path as osp, os
 from waflib.Utils import to_list
 from waflib.Configure import conf
@@ -36,10 +35,12 @@ def recurse(ctx, keep_going=False):
     return success,fail
 
     
-def options(opt):
+def options(opt, keep_going=True):
     opt.add_option('--inplace', action='store_true', default=False,
                 help='install CosmoSlik in this directory')
-    recurse(opt)
+    opt.add_option('--plugin', nargs=1, help='configure single plugin', dest='configure')
+    recurse(opt,keep_going=True)
+
 
 @conf
 def check_library_func(conf, library, function, use, envvars=None):
@@ -59,30 +60,25 @@ def check_library_func(conf, library, function, use, envvars=None):
                     '\n'.join(['%s = %s'%(x,' '.join(getattr(conf.env,x,''))) for x in sorted(set(envvars))]))
 
 
+@conf
+def check_lapack_blas(conf): 
+    conf.env.append_value('LINKFLAGS_LAPACK', to_list(conf.environ.get('LINKFLAGS_LAPACK','-llapack -lblas')))
+    conf.check_library_func('lapack','dpotrf_','LAPACK')
+    conf.check_library_func('blas','ddot_','LAPACK')
+
+@conf
+def check_cfitsio(conf): 
+    conf.env.append_value('LINKFLAGS_CFITSIO', to_list(conf.environ.get('LINKFLAGS_CFITSIO','-lcfitsio')))
+    conf.check_library_func('cfitsio','ftopen_','CFITSIO')
+
 
 def configure(conf):
     conf.env.PYTHON = sys.executable
     conf.load('python compiler_c')
     conf.check_python_version((2,7))
     conf.check_python_module('numpy','ver >= num(1,5)')
-    try:
-        conf.check_python_module('pypico','ver >= num(3,1,0)')
-    except: 
-        args = sys.argv[2:]+["-U","pypico>=3.1.0"]
-        print args
-        easy_install.main(args)
 
-    
-    for x,d in [('LINKFLAGS',None),
-                ('LINKFLAGS_LAPACK','-llapack -lblas'),
-                ('LINKFLAGS_CFITSIO','-lcfitsio')]:
-        conf.env.append_value(x, to_list(conf.environ.get(x,d or [])))
-
-    for lib, func, use in [('lapack','dpotrf_','LAPACK'),
-                           ('blas','ddot_','LAPACK'),
-                           ('cfitsio','ftopen_','CFITSIO')]:
-        conf.check_library_func(lib,func,use=use)
-
+    conf.env.append_value('LINKFLAGS', to_list(conf.environ.get('LINKFLAGS','')))
 
     success, fail = recurse(conf,keep_going=True)
     
