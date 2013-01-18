@@ -40,11 +40,11 @@ class cosmology(Deriver):
         Given a dictionary of cosmological parameters attempts to add as many
         aliases and derived parameters as possible
         """
-        from hubble_theta_wrap import hubble2theta, theta2hubble
+        from hubble_theta import hubble_theta
         add_aliases(aliases,p)
         if 'theta' in p:
             if all(k in p for k in ['ombh2','omch2', 'omk', 'omnuh2', 'w', 'Nnu_massless', 'Nnu_massive']):
-                h=p["h"]=theta2hubble(p["theta"],p["ombh2"],p["omch2"],p["omk"],p["omnuh2"],p["w"],p["Nnu_massless"],p["Nnu_massive"])/100.
+                h=p["h"]=hubble_theta.theta2hubble(p["theta"],p["ombh2"],p["omch2"],p["omk"],p["omnuh2"],p["w"],p["Nnu_massless"],p["Nnu_massive"])/100.
                 for k in ['omb','omc','omm','omnu','omv','omk']:
                     if k+'h2' in p: p[k]=p[k+'h2']/h**2
                     elif k in p: p[k+'h2']=p[k]*h**2
@@ -62,7 +62,7 @@ class cosmology(Deriver):
                 elif k+'h2' in p: p[k]=p[k+'h2']/h**2
             if 'omv' not in p: p['omv']=1-p['omb']-p['omc']-p['omnu']
             if all(k in p for k in ['omb','omc', 'omv', 'omn', 'w', 'Nnu_massless', 'Nnu_massive']):
-                p['theta']=hubble2theta(p['H0'],p['omb'],p['omc'],p['omv'],p['omn'],p['w'],p['Nnu_massless'],p['Nnu_massive'])
+                p['theta']=hubble_theta.hubble2theta(p['H0'],p['omb'],p['omc'],p['omv'],p['omn'],p['w'],p['Nnu_massless'],p['Nnu_massive'])
         
         if 'As' in p: p['logA']=log(10**10*p['As'])
         elif 'logA' in p: p['As']=exp(p['logA'])*10**(-10)

@@ -83,7 +83,6 @@ contains
          rs = rombint(dsoundda,1d-8,astar,TOLERANCE)
          DA = AngularDiameterDistance(astar)/astar
 
-         print *, astar, rs, DA
 
          f_hubble2theta = rs/DA
 
