@@ -1,5 +1,5 @@
 import pypico
-import cosmoslik.plugins.models.camb as camb
+import cosmoslik_plugins.models.camb as camb
 from cosmoslik.plugins import Model
 
 class pico(Model):
