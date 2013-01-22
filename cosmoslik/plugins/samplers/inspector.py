@@ -42,13 +42,18 @@ class inspector(Sampler):
     def init(self, p):
         c = load_chain(p.pop('output_file'))
         if isinstance(c,Chains): c=c.join()
-        self.bestfit = c.best_fit()
+        if p['inspect_goto']=='bestfit':
+            self.goto = c.best_fit()
+        elif p['inspect_goto']=='mean':
+            self.goto = dict(zip(c.params(),c.mean()))
+        else:
+            raise ValueError('goto must be one of bestfit/mean')
         
     def sample(self, x, lnl, p):
-        x = [self.bestfit['.'.join(k)] for k in p.get_all_sampled()]
+        x = [self.goto['.'.join(k)] for k in p.get_all_sampled()]
         lnl, p = lnl(x, p)
         yield x, 1, lnl, p
 
 
-def inspect(params, **kwargs):
-    return cosmoslik.sample(params,samplers='inspector', **kwargs).next()[-1]
+def inspect(params, goto='bestfit',**kwargs):
+    return cosmoslik.sample(params,samplers='inspector',inspect_goto=goto,**kwargs).next()[-1]

@@ -114,9 +114,11 @@ class camb(Model):
                     if 'cl_%s'%x in required:
                         result['cl_%s'%x] = zeros(lmax)
                         if doscal or dolens: 
-                            result['cl_%s'%x][2:lmax] += (((1-Alens)*scal[x][:lmax-2] if x!='BB' and doscal else 0)) + (Alens*lens[x][:lmax-2] if dolens else 0)
+                            _lmax = min(lmax,(lens if dolens else scal)[x].shape[0])
+                            result['cl_%s'%x][2:_lmax] += (((1-Alens)*scal[x][:_lmax-2] if x!='BB' and doscal else 0)) + (Alens*lens[x][:_lmax-2] if dolens else 0)
                         if dotens:
-                            result['cl_%s'%x][2:lmax_tens] += tens[x][:lmax_tens-2]
+                            _lmax = min(lmax,tens[x].shape[0])
+                            result['cl_%s'%x][2:_lmax] += tens[x][:_lmax-2]
                 if dolens:
                     if 'cl_pp' in required: result['cl_pp'] = hstack([[0,0],scal['pp'][:lmax-2]])
                     if 'cl_pT' in required: result['cl_pT'] = hstack([[0,0],scal['pT'][:lmax-2]])
@@ -125,7 +127,10 @@ class camb(Model):
             p['z_drag'] = float(output['misc']['z_drag'])
         
         except Exception as e:
-            raise Exception("""An error occurred reading CAMB result: %s \nCAMB output:\n"""%repr(e)+output.get('stdout'))
+            print e
+            print output
+            raise
+            #raise Exception("""An error occurred reading CAMB result: %s \nCAMB output:\n"""%repr(e)+output.get('stdout',''))
 
 
         return result

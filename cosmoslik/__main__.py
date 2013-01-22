@@ -15,6 +15,11 @@ parser.add_argument('--dict',nargs=1,metavar='<dict>',help='specify parameter di
 parser.add_argument('--traceback',action='store_true',default=False,help='print out tracebacks on error messages')
 
 def main(args):
+
+    if args['traceback']: 
+        import plugins
+        plugins.no_subproc = True
+
     if args['list']:
         import plugins
         print "Found the following modules in 'cosmoslik.plugins':"

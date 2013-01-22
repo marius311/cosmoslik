@@ -80,7 +80,6 @@ def SubprocessExtension(module_name,globals):
     
         X = SubprocessExtension('X',globals())
     """
-
     if no_subproc:
         exec ('from %s import %s \n'
               'mod = %s')%(module_name,module_name,module_name) in globals, locals()
@@ -126,6 +125,7 @@ class _SubprocessExtension(object):
                     else: conn.send(getattr(mod,attr))
             except Exception, e: 
                 conn.send(e)
+                raise
                 return
     
         self._conn, conn_child = Pipe()

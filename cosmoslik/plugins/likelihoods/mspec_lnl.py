@@ -25,6 +25,7 @@ class mspec_lnl(Likelihood):
         
         self.cleaning = self.mp['cleaning'] if 'cleaning' in self.mp else {m:[(m,1)] for m in self.signal.get_maps()}
         
+        self.beamcov = None
         if 'beam' in self.mp:
             self.beampca = M.SymmetricTensorDict()
             for k,v in self.mp['beam'].items():
@@ -32,8 +33,6 @@ class mspec_lnl(Likelihood):
             if 'beamcov' in self.mp:
                 with open(self.mp['beamcov']) as f:
                     self.beamcov = (f.readline().replace('#','').split(),(cholesky(loadtxt(f)),False))
-            else:
-                self.beamcov = None
                 
         self.per_freq_egfs = M.SymmetricTensorDict(self.mp.get('per_freq_egfs',{}))
         
@@ -57,10 +56,7 @@ class mspec_lnl(Likelihood):
         
         if sig is None: sig=self.signal
         
-        sig = M.PowerSpectra(ells=sig.ells,
-                             spectra=sig.spectra.copy(),
-                             cov=(sig.cov.copy() if keep_cov else None),
-                             binning=sig.binning)
+        sig = sig.deepcopy()
         
         def calib(sig):
             if do_calib:
