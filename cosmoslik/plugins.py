@@ -160,7 +160,7 @@ def get_plugin(name):
     name should be module path relative to cosmoslik.plugins
     """
     modname = name.split('.')[-1]
-    cls = __import__('cosmoslik.plugins.'+name,fromlist=modname).__getattribute__(modname)
+    cls = __import__('cosmoslik_plugins.'+name,fromlist=modname).__getattribute__(modname)
     if not inspect.isclass(cls) or CosmoSlikPlugin not in inspect.getmro(cls):
         raise Exception("Can't load plugin '%s'. It does not appear to be a CosmoSlik plugin."%name)
     return cls
@@ -177,9 +177,9 @@ def get_all_plugins():
     is a subclass of CosmoSlikPlugin. If multiple references to
     X exist in the package, only the shallowest one is returned.  
     """
-    import cosmoslik.plugins
+    import cosmoslik_plugins
     plugins = dict()
-    for _,fullname,_ in  pkgutil.walk_packages(cosmoslik.plugins.__path__,cosmoslik.plugins.__name__+'.'):
+    for _,fullname,_ in  pkgutil.walk_packages(cosmoslik_plugins.__path__,cosmoslik_plugins.__name__+'.'):
         try:
             modname = fullname.split('.')[-1]
             mod = __import__(fullname,fromlist=modname)

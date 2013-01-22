@@ -1,0 +1,15 @@
+#! /usr/bin/env python
+
+from cosmoslik.waf.utils import build_f2py, config_f2py, opt_f2py
+
+def options(opt):
+    opt_f2py(opt)
+    
+def configure(conf):
+    config_f2py(conf)
+    
+def build(bld):
+    build_f2py(bld,
+               source='hubble_theta_wrap.f90', 
+               module_name='hubble_theta',
+               extra_sources='hubble_theta_convert.f90')

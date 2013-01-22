@@ -3,8 +3,7 @@ from numpy import zeros, loadtxt, hstack, arange
 from ConfigParser import RawConfigParser
 from StringIO import StringIO
 
-from cosmoslik.plugins import Model
-from cosmoslik.plugins.plugins import SubprocessExtension
+from cosmoslik.plugins import Model, SubprocessExtension
 
 class camb(Model):
     """

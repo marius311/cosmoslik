@@ -1,3 +1,5 @@
+! -*- f90 -*-
+
 !! This is a routine to convert between Theta and Hubble and vice-versa.  
 !! It is taken from the CAMB and CosmoMC codes, but avoids the need for the 
 !! CAMB/CMB types. Everything interesting was there in CAMB/CosmoMC already.
@@ -81,6 +83,7 @@ contains
          rs = rombint(dsoundda,1d-8,astar,TOLERANCE)
          DA = AngularDiameterDistance(astar)/astar
 
+
          f_hubble2theta = rs/DA
 
    end function
@@ -88,11 +91,11 @@ contains
    !!=========================================================================!!
 
    function f_theta2hubble(theta, ombh2, omch2, omk, omnh2, w, num_nu, &
-                         num_nu_mass, error)
+                         num_nu_mass)
 
          real(r8b), intent(in) :: theta, ombh2, omch2, omk, omnh2, w, num_nu, &
                                   num_nu_mass
-         logical, intent(inout), optional :: error
+         logical :: error
          real(r8b) :: f_theta2hubble
 
          real(r8b), parameter :: h_guess = 70.0_r8b,  &
@@ -121,10 +124,6 @@ contains
          nu_initialized = .false.
          htemp = minimize(h_minimum,h_lower,h_guess,h_upper,TOLERANCE)
          err = h_minimum(htemp)
-         if (present(error)) then
-            if (integration_error .or. (sqrt(err)/htemp > TOLERANCE)) &
-                                                                error = .true.
-         end if
          f_theta2hubble = htemp
 
          nu_initialized = .false.

@@ -1,40 +1,47 @@
 .. _install:
 
-==========
-Installing
-==========
+============
+Installation
+============
 
-.. warning::
+CosmoSlik uses the `waf <http://code.google.com/p/waf/>`_ build system. 
+Installation consists of three steps::
 
-    Going to figure out a better way to install, but for now...
+    ./waf configure [--prefix=/my/prefix]
+    ./waf build
+    ./waf install
     
-CosmoSlik is written in Python, so it does not need to be compiled. You can simply
-open the archive and run ``cosmoslik.py``. However, some modules are wrappers
-of other codes which *do* need to be compiled. To do this, 
+``configure`` verifies that all dependencies are met and searches for compilers and libraries. 
+When things are not automatically configured, you can set them manually with environment variables, 
+for example set the C compiler via the ``CC`` variable::
 
-1. First create a file called ``Makefile.inc``, most likely by coping ``Makefile.inc.example``. 
-   Then edit the file and change the various variables to ones for your platform.
-   
-2. Run ``cosmoslik.py --build``. This recursively runs ``make`` or ``setup.py`` on all 
-   of the modules in CosmoSlik. They will be using the variables you defined in ``Makefile.inc``.
-   
+    CC=/path/to/gcc ./waf configure
+    
+When ``configure`` is unable to find a required
+library, it will tell you the environment variables which were searched for the library. For example,
+when linking to the Lapack library, one of the variables is ``LINKFLAGS_LAPACK``, which can then be
+manually specified via::
+
+    LINKFLAGS_LAPACK="-L/path/to/lapack -llapack" ./waf configure
+
+The optional ``--prefix`` argument specifies where to install CosmoSlik after it is built. 
+CosmoSlik is Python package and is installed entirely in the ``site-packages`` directory 
+of a Python installation. Generally, there are two options for ``prefix``:
+
+* left unspecified - This installs CosmoSlik system-wide, (e.g. in `/usr/lib/python/site-packages`).
+  Note you may need super-user privelages for this.
+* ``--prefix=~/.local`` - This installs CosmoSlik in the current user's home directory, 
+  (e.g. in `~/.local/lib/python/site-packages`)
+
+Once the ``configure`` step finishes successfully, ``build`` is ready to run. This creates a folder
+``build/`` which houses the compiled libraries.
+
+  
+
+
 Requirements
 ============
 
 - `Numpy <http://numpy.scipy.org/>`_
 - `Scipy <http://scipy.org/>`_
 - `mpi4py <http://mpi4py.scipy.org/>`_ (optional)
-
-Troubleshooting
-===============
-
-- If a build fails, you can go directly into a module's directory and run ``make``
-  or ``setup.py`` by hand.  
-      
-- Modules which are wrappers of Fortran code are compiled with the `F2PY <http://www.scipy.org/F2py/>`_ package. 
-  The ``F2PYFLAGS`` variable in ``Makefile.inc`` specifies flags which are passed to F2PY. 
-  Some useful ones include
-    - ``--fcompiler=`` The name of Fortran compiler, e.g. ``gnu`` or ``intel``. Run
-      ``f2py --help-fcompiler`` to list available names
-    - ``--f90exec=`` A path to a Fortran compiler
-    - ``--f90flags=`` Extra Fortran flags

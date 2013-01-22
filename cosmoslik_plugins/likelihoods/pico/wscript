@@ -1,0 +1,9 @@
+def configure(conf):
+    try:
+        conf.check_python_module('pypico','ver >= num(3,1,0)')
+    except: 
+        args = sys.argv[2:]+["-U","pypico>=3.1.0"]
+        print args
+        easy_install.main(args)
+
+def build(bld): pass

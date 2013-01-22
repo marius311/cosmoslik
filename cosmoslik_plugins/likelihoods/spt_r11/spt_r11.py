@@ -76,7 +76,7 @@ class spt_r11(Likelihood):
         def get_cl(fr1,fr2): 
             calib = p.get(('spt_r11','a%s'%fr1),1)*p.get(('spt_r11','a%s'%fr2),1) 
             return calib * ((0 if self.cmb_free else hstack([model['cl_TT'],zeros(10000)])[:self.lmax]) + 
-                            model['egfs']('cl_TT', lmax=self.lmax, freqs=(self.freq[fr1],self.freq[fr2]), fluxcut=self.fluxcut))
+                            model['egfs']('cl_TT', lmax=self.lmax, freqs=(self.freq[fr1],self.freq[fr2]), fluxcut=self.fluxcut, id='spt_r11'))
         def apply_windows(cl,windows): return array([dot(cl[self.windowrange],w[:,1]) for w in windows])
         return {spec_name:apply_windows(get_cl(*spec_name),windows) for (spec_name, windows) in self.windows.items()}
     
@@ -149,7 +149,7 @@ class spt_r11(Likelihood):
                 if show_model: ax.plot(self.ells[spec_name],cl[spec_name],**model_kw)
                 if show_comps: 
                     ax.plot(p['_model']['cl_TT'],c='b')
-                    p['_model']['egfs']('cl_TT', lmax=self.lmax, freqs=(self.freq[fri],self.freq[frj]), fluxcut=self.fluxcut, plot=True, ax=ax, **comps_kw)
+                    p['_model']['egfs']('cl_TT', lmax=self.lmax, freqs=(self.freq[fri],self.freq[frj]), fluxcut=self.fluxcut, plot=True, ax=ax, id='spt_r11', **comps_kw)
                 ax.set_ylim(*(ylim or ((0,449) if yscale=='linear' else (1,1000))))
                 ax.set_yscale(yscale)
             ax.set_xlim(1500,9500)

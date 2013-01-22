@@ -65,6 +65,9 @@ class spt_k11(Likelihood):
     def init(self, p):
         
         self.datadir = os.path.join(os.path.dirname(__file__),'bandpowers')
+        if not os.path.exists(self.datadir):
+            import tarfile
+            tarfile.open(os.path.join(os.path.dirname(__file__),'bandpowers_spt20082009.tar.gz')).extractall(os.path.dirname(__file__))
         
         #Load spectrum and covariance
         with open(os.path.join(self.datadir,'Spectrum_spt20082009.newdat')) as f:
