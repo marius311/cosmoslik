@@ -19,4 +19,5 @@ def build(bld):
                source=wrapper,
                module_name='pycamb',
                skip='get_mpk',
+               install_path=bld.path.parent.path_from(bld.root.find_node(bld.top_dir)),
                extra_sources=cambfiles)
