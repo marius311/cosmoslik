@@ -97,6 +97,7 @@ class camb(Model):
 
         #Call CAMB
         output = self.camb(**cambini)
+        
 
         try:
         
