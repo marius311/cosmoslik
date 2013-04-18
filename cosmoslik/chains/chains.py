@@ -18,7 +18,7 @@ from itertools import takewhile
 from cosmoslik.params import load_ini
 
 __all__ = ['Chain','Chains',
-           'like1d','like2d','likegrid',
+           'like1d','like2d','likegrid','likegrid1d',
            'get_covariance', 'load_chain']
 
 
@@ -321,6 +321,105 @@ def likegrid(chains, params=None,
         fig.legend([Line2D([0],[0],c=c) for c in colors],labels,fancybox=True,shadow=True,loc=legend_loc)
 
 
+def likegrid1d(chains, params=None,
+             lims=None, ticks=None,
+             default_chain=0,
+             colors=None,
+             nbins1d=30,
+             labels=None,
+             fig=None,
+             size=2,
+             aspect=1,
+             legend_loc=None,
+             param_name_mapping=None,
+             param_label_size=None,
+             ncol = 4):
+    """
+    Make a grid of 1-d likelihood contours.
+   
+    Arguments:
+    ----------
+   
+    chains :
+        one or a list of `Chain` objects
+       
+    default_chain, optional :
+        the chain used to get default parameters names, axes limits, and ticks
+        either an index into chains or a `Chain` object (default: chains[0])
+       
+    params, optional :
+        list of parameter names which to show
+        (default: all parameters from default_chain)
+       
+    lims, optional :
+        a dictionary mapping parameter names to (min,max) axes limits
+        (default: +/- 4 sigma from default_chain)
+       
+    ticks, optional :
+        a dictionary mapping parameter names to list of [ticks]
+        (default: [-2, 0, +2] sigma from default_chain)
+       
+    fig, optional :
+        figure of figure number in which to plot (default: figure(0))
+       
+    size, optional :
+        size in inches of one plot (default: 2)
+
+    aspect, optional :
+        aspect ratio (default: 1)
+
+    ncol, optional :
+        the number of colunms (default: 4)
+       
+    colors, optional :
+        colors to cycle through for plotting
+       
+    filled, optional :
+        whether to fill in the contours (default: True)
+       
+    labels, optional :
+        list of names for a legend
+       
+    legend_loc, optional :
+        (x,y) location of the legend (coordinates scaled to [0,1])
+       
+    nbins1d, optional :
+        number of bins for 1d plots (default: 30)
+       
+    nbins2d, optional :
+        number of bins for 2d plots (default: 20)
+    """
+    from matplotlib.pyplot import figure, Line2D
+    fig = figure(0) if fig is None else (figure(fig) if isinstance(fig,int) else fig)
+    if type(chains)!=list: chains=[chains]
+    if params==None: params = sorted(reduce(lambda x,y: set(x)&set(y), [c.params() for c in chains]))
+    if param_name_mapping is None: param_name_mapping = {}
+    nrow = len(params)/ncol+1
+    if size is not None: fig.set_size_inches(size*ncol,size*nrow/aspect)
+    if colors is None: colors=['b','orange','k','m','cyan']
+    fig.subplots_adjust(hspace=0.4)
+   
+    c=chains[default_chain] if isinstance(default_chain,int) else default_chain
+    lims = dict({p:(max(min(c[p]),mean(c[p])-4*std(c[p])),min(max(c[p]),mean(c[p])+4*std(c[p]))) for p in params},**(lims if lims is not None else {}))
+    ticks = dict({p:[t for t in ts if lims[p][0]<=t<=lims[p][1]] for (p,ts) in zip(params,(c.mean(params)+c.std(params)*transpose([[-2,0,2]])).T)},**(ticks if ticks is not None else {}))
+
+    n=len(params)
+    for (i,p1) in enumerate(params,1):
+        ax=fig.add_subplot(nrow,ncol,i)
+        ax.set_xticks(ticks[p1])
+        ax.set_xlim(*lims[p1])
+        for (ch,col) in zip(chains,colors):
+            if p1 in ch: ch.like1d(p1,nbins=nbins1d,color=col,ax=ax)
+        ax.set_yticks([])
+                   
+        ax.set_title(param_name_mapping.get(p1,p1),size=param_label_size)
+        ax.set_xticklabels(['%.3g'%t for t in ticks[p1]])
+
+   
+    if labels is not None:
+        fig.legend([Line2D([0],[0],c=c) for c in colors],labels,fancybox=True,shadow=True,loc=legend_loc)
+        
+        
 def confint2d(hist,which):
     """
     Return confidence levels in a histogram.
