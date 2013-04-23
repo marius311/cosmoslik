@@ -62,13 +62,13 @@ def check_library_func(conf, library, function, use, envvars=None):
 
 @conf
 def check_lapack_blas(conf): 
-    conf.env.append_value('LINKFLAGS_LAPACK', to_list(conf.environ.get('LINKFLAGS_LAPACK','-llapack -lblas')))
+    conf.env.table.setdefault('LINKFLAGS_LAPACK',['-llapack','-lblas'])
     conf.check_library_func('lapack','dpotrf_','LAPACK')
     conf.check_library_func('blas','ddot_','LAPACK')
 
 @conf
 def check_cfitsio(conf): 
-    conf.env.append_value('LINKFLAGS_CFITSIO', to_list(conf.environ.get('LINKFLAGS_CFITSIO','-lcfitsio')))
+    conf.env.table.setdefault('LINKFLAGS_CFITSIO',['-lcfitsio'])
     conf.check_library_func('cfitsio','ftopen_','CFITSIO')
 
 
@@ -78,7 +78,9 @@ def configure(conf):
     conf.check_python_version((2,7))
     conf.check_python_module('numpy','ver >= num(1,5)')
 
-    conf.env.append_value('LINKFLAGS', to_list(conf.environ.get('LINKFLAGS','')))
+    for k,v in conf.environ.items():
+        if any(k.startswith(p) for p in ['LIB','LIBPATH','LINKFLAGS']):   
+            conf.env.append_value(k, to_list(conf.environ[k]))
 
     success, fail = recurse(conf,keep_going=True)
     
