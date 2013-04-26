@@ -159,7 +159,7 @@ class metropolis_hastings2(Sampler):
                     if mpi.get_size()==1 and s.weight>0: 
                         cPickle.dump((0,[sampletuple(s.x,s.weight,s.lnl,extra)]),self.output_file,protocol=2)
                     samples.append(sampletuple(s.x,s.weight,s.lnl,extra))
-                    if len(samples)==500 and size>1:
+                    if len(samples)==p.get('mpi_comm_frequency',50) and size>1:
                         comm.send((rank,samples),dest=0)
                         s = sampler.send(comm.recv(source=0))
                         samples = []
