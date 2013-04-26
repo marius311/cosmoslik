@@ -1,9 +1,10 @@
-from numpy import mean, sqrt, diag, inf, std, loadtxt, isinf
+from numpy import mean, sqrt, diag, inf, std, loadtxt, isinf, nan
 from collections import namedtuple
 from itertools import product, chain, takewhile
 import mpi, re, os, sys
 import params, plugins
 from cosmoslik_plugins.samplers.inspector import inspect
+from params import SectionDict
 
 __all__ = ['lnl','sample','build','inspect','init']
 
@@ -20,11 +21,12 @@ def lnl(x,p):
         for d in p['_derivers'].values(): d.add_derived(p)
 
         #Evaluate models and call likelihoods
-        p['_model'] = ModelDict()
+        p['_model'] = SectionDict()
         for m in p['_models'].values(): p['_model'].update(m.get(p,p['_models_required']))
         tot_lnl = 0
-        for l in p['_likelihoods'].values():
-            lnl = l.lnl(p,p['_model'].for_module(l))
+        p['_likelihood'] = SectionDict({k:nan for k in p['_likelihoods']})
+        for k,l in p['_likelihoods'].items():
+            lnl = p['_likelihood'][k] = l.lnl(p,p['_model'])
             tot_lnl += lnl
             if isinf(lnl): break
             
@@ -67,11 +69,11 @@ def init(paramfile,**kwargs):
     
 
 def sample(paramfile,**kwargs):
-    p = init(paramfile,**kwargs)
+    if isinstance(paramfile,dict): p=paramfile
+    else: p = init(paramfile,**kwargs)
 
     sampled = p.get_all_sampled().keys()
-    outputted = sampled + [(k,) for k in p.get('derived','').split()]
-
+    outputted = sampled + [tuple(k.split('.')) for k in p.get('derived','').split()]
     #Prep output file
     if 'output_file' in p:
         f = open(p['output_file'],'w')
@@ -106,7 +108,8 @@ def sample(paramfile,**kwargs):
                      nsamp,
                      100*float(len(samples.weight))/nsamp,
                      min(samples.lnl+[inf]),
-                     ', '.join([('like:%.2f'%l1)]+['%s:%.4g'%('.'.join(name),p1.get(name,float('nan'))) for name in outputted])
+                     ', '.join([('like:%.2f'%l1)]+['%s:%s'%('.'.join(name),'%.4g'%p1[name] if isinstance(p1[name],float) else p1[name])
+                                                   for name in outputted if name in p1])
                      ) 
 
     if f!=None: f.close()
@@ -116,17 +119,6 @@ def sample(paramfile,**kwargs):
         with open(p['dump_samples'],'w') as f: cPickle.dump(tuple(samples), f, 2)
         
         
-class ModelDict(dict):
-    
-    def __getitem__(self,k):
-        try: return dict.__getitem__(self,k)
-        except: raise Exception("The likelihood module '%s' needs a model for '%s' but no models provided it. Try running 'cosmoslik.py --help' to list available models."%(self._for_module,k))
-        
-    def for_module(self,l):
-        self._for_module = l.__class__.__name__
-        return self
-        
-
 def initialize_covariance(params):
     """Load the sigma, defaulting to diagonal entries from the WIDTH of each parameter."""
     v=params.get("proposal_matrix","")
