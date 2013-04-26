@@ -155,7 +155,7 @@ class metropolis_hastings2(Sampler):
             while True:
                 try:
                     yield s
-                    extra=array([s.extra[tuple(k.split('.'))] for k in p['derived'].split(' ')])
+                    extra=array([s.extra.get(tuple(k.split('.')),None) for k in p['derived'].split(' ')])
                     if mpi.get_size()==1 and s.weight>0: 
                         cPickle.dump((0,[sampletuple(s.x,s.weight,s.lnl,extra)]),self.output_file,protocol=2)
                     samples.append(sampletuple(s.x,s.weight,s.lnl,extra))
