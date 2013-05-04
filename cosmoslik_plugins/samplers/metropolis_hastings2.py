@@ -81,6 +81,7 @@ class metropolis_hastings2(Sampler):
         else:
             self.output_file = open(p['output_file'],"w")
             cPickle.dump((['.'.join(k) for k in p.get_all_sampled().keys()],p['derived'].split(' ')),self.output_file)
+            self.output_file.flush()
             
         p.pop('output_file')
         
@@ -145,6 +146,7 @@ class metropolis_hastings2(Sampler):
                     else: comm.send({},dest=source)
                     
                     cPickle.dump((source,[s for s in new_samples if s.weight>0]),self.output_file,protocol=2)
+                    self.output_file.flush()
                 else: 
                     finished[source-1]=True
                     
