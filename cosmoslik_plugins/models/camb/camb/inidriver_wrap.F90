@@ -56,8 +56,6 @@ contains
 
         call Ini_Open_FromLines(DefIni, lines, nlines, .false.)
 
-        if (bad) stop 'Error opening parameter file'
-
         Ini_fail_on_not_found = .false.
 
         outroot = Ini_Read_String('output_root')
