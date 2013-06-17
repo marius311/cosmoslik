@@ -40,7 +40,9 @@ class inspector(Sampler):
     """
 
     def init(self, p):
-        c = load_chain(p.pop('output_file'))
+        if 'chain' in p: c=p['chain']
+        else: c = load_chain(p['output_file'])
+        p.pop('output_file')
         if isinstance(c,Chains): c=c.join()
         if p['inspect_goto']=='bestfit':
             self.goto = c.best_fit()
