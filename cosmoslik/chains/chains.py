@@ -404,19 +404,21 @@ def likegrid1d(chains, params=None,
    
     c=chains[default_chain] if isinstance(default_chain,int) else default_chain
     lims = dict({p:(max(min(c[p]),mean(c[p])-4*std(c[p])),min(max(c[p]),mean(c[p])+4*std(c[p]))) for p in params},**(lims if lims is not None else {}))
-    ticks = dict({p:[t for t in ts if lims[p][0]<=t<=lims[p][1]] for (p,ts) in zip(params,(c.mean(params)+c.std(params)*transpose([[-2,0,2]])).T)},**(ticks if ticks is not None else {}))
+    _ticks = dict({p:[t for t in ts if lims[p][0]<=t<=lims[p][1]] for (p,ts) in zip(params,(c.mean(params)+c.std(params)*transpose([[-2,0,2]])).T)})
+    if isinstance(ticks,dict): _ticks.update(ticks)
 
     n=len(params)
     for (i,p1) in enumerate(params,1):
         ax=fig.add_subplot(nrow,ncol,i)
-        ax.set_xticks(ticks[p1])
+        if ticks=='auto':
+            ax.set_xticks(_ticks[p1])
+            ax.set_xticklabels(['%.3g'%t for t in ticks[p1]])
         ax.set_xlim(*lims[p1])
         for (ch,col) in zip(chains,colors):
             if p1 in ch: ch.like1d(p1,nbins=nbins1d,color=col,ax=ax)
         ax.set_yticks([])
                    
         ax.set_title(param_name_mapping.get(p1,p1),size=param_label_size)
-        ax.set_xticklabels(['%.3g'%t for t in ticks[p1]])
 
    
     if labels is not None:
