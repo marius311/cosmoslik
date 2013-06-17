@@ -38,8 +38,9 @@ def recurse(ctx, keep_going=False):
 def options(opt, keep_going=True):
     opt.add_option('--inplace', action='store_true', default=False,
                 help='install CosmoSlik in this directory')
-    opt.add_option('--plugin', nargs=1, help='configure single plugin', dest='configure')
-    recurse(opt,keep_going=True)
+    opt.add_option('--plugin', nargs=1, help='configure single plugin', dest='PLUGIN')
+    opt.add_option('--exclude', nargs='?', help='dont build certain plugins', dest='EXCLUDE')
+    recurse(opt, keep_going=True)
 
 
 @conf
@@ -79,11 +80,15 @@ def configure(conf):
     conf.check_python_module('numpy','ver >= num(1,5)')
 
     for k,v in conf.environ.items():
-        if any(k.startswith(p) for p in ['LIB','LIBPATH','LINKFLAGS']):   
+        if any(k.startswith(p) for p in ['LIB','LIBPATH','LINKFLAGS']): 
             conf.env.append_value(k, to_list(conf.environ[k]))
 
-    success, fail = recurse(conf,keep_going=True)
-    
+    if conf.options.PLUGIN is not None:
+        success, fail = [conf.srcnode.find_node("cosmoslik_plugins").make_node(conf.options.PLUGIN)], []
+        conf.recurse(success[0].abspath())
+    else:
+        success, fail = recurse(conf,keep_going=True)
+        
     if len(success)>0:
         sys.stdout.write('\033[1m')
         print "The following plugins are ready to build:"
@@ -96,10 +101,11 @@ def configure(conf):
         sys.stdout.write('\033[93m')
         for f in fail: print "  "+f.path_from(conf.srcnode.find_node("cosmoslik_plugins/"))
         sys.stdout.write('\033[0m')
-        print "Run './waf configure --target <plugin>' to see why a given plugin can't build."
+        print "Run './waf configure --plugin PLUGIN' to see why a given plugin can't build."
+        print "where PLUGIN is exactly as it appears above."
 
     conf.env.configured_plugins = [f.path_from(conf.srcnode) for f in success]
-    
+
     if conf.options.inplace: 
         conf.env.PYTHONDIR = '.'
         conf.env.INPLACE = True

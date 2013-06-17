@@ -78,8 +78,8 @@ def config_f2py(conf):
     conf.load('compiler_c compiler_fc python')
     conf.check(features='c', cflags=['-fPIC'])
     conf.check(features='fc', cflags=['-fPIC'])
-    conf.env.CFLAGS = ['-fPIC']
-    conf.env.FCFLAGS = ['-fPIC']
+    conf.env.append_unique('CFLAGS','-fPIC')
+    conf.env.append_unique('FCFLAGS','-fPIC')
     conf.check_python_headers()
     conf.env.fcshlib_PATTERN = '%s.so'
     conf.find_program('f2py',var='F2PY')
