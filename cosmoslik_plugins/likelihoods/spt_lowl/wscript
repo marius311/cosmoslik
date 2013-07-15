@@ -24,5 +24,5 @@ def build(bld):
             source=osp.join(prefix,bandpower_tgz),
             target=[osp.join(prefix,f) for f in bandpower_files])
 
-    for f in k11_bandpower_files + s12_bandpower_files:
-        bld.install_files(osp.join(bld.env.PYTHONDIR,bld.path.path_from(bld.root.find_node(bld.top_dir)),osp.dirname(f)),f)
+        for f in bandpower_files:
+            bld.install_files(osp.join(bld.env.PYTHONDIR,bld.path.path_from(bld.root.find_node(bld.top_dir)),osp.dirname(osp.join(prefix,f))),osp.join(prefix,f))

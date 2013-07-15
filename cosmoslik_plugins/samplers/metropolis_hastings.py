@@ -5,11 +5,7 @@ import cosmoslik.mpi as mpi, re, time
 
 import cPickle
 from collections import defaultdict
-
-from cosmoslik.plugin_tools import *
-
 from cosmoslik import SlikSampler, SlikFunction, param
-from cosmoslik_plugins.samplers.covbased import CovBased
 from cosmoslik.chains.chains import Chain, Chains
 from cosmoslik.cosmoslik import sample
     
@@ -21,7 +17,7 @@ class mcmc_sample(sample):
         super(mcmc_sample,self).__init__(*args,**kwargs)
 
     
-class metropolis_hastings(SlikSampler,CovBased):
+class metropolis_hastings(SlikSampler):
     """
     
     ===================
