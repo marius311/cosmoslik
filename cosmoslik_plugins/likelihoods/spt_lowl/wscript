@@ -1,0 +1,28 @@
+import os.path as osp
+
+k11_prefix = 'data/k11'
+k11_bandpower_tgz = 'bandpowers_spt20082009.tar.gz' 
+k11_bandpower_files = (['bandpowers/Spectrum_spt20082009.newdat'] +
+                       ['bandpowers/windows/window_0809/window_%i'%i for i in range(1,48)])
+
+s12_prefix = 'data/s12'
+s12_bandpower_tgz = 'spt_lps12_20120828_bothcal.tgz' 
+s12_bandpower_files = (['spt_lps12_20120828/Spectrum_spt2500deg2_lps12.newdat',
+                        'spt_lps12_20120828/Spectrum_spt2500deg2_lps12_alternativeCalibrationImplementation.newdat'] +
+                       ['spt_lps12_20120828/windows/window_lps12/window_%i'%i for i in range(1,48)])
+
+
+def configure(conf):
+    conf.find_program('tar',var='TAR')
+    conf.load('python')
+    conf.check_python_version()
+    
+def build(bld):
+    for prefix, bandpower_tgz, bandpower_files in [(k11_prefix,k11_bandpower_tgz,k11_bandpower_files),
+                                                   (s12_prefix,s12_bandpower_tgz,s12_bandpower_files)]:
+        bld(rule='${TAR} zxf ${SRC} -C '+bld.path.get_bld().make_node(prefix).abspath(),
+            source=osp.join(prefix,bandpower_tgz),
+            target=[osp.join(prefix,f) for f in bandpower_files])
+
+    for f in k11_bandpower_files + s12_bandpower_files:
+        bld.install_files(osp.join(bld.env.PYTHONDIR,bld.path.path_from(bld.root.find_node(bld.top_dir)),osp.dirname(f)),f)

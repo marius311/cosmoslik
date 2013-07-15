@@ -15,14 +15,13 @@ Contains utilities to:
 import os, sys, re
 from numpy import *
 from itertools import takewhile
-from cosmoslik.params import load_ini
 from collections import defaultdict
 import cPickle
 
 
 __all__ = ['Chain','Chains',
            'like1d','like2d','likegrid','likegrid1d',
-           'get_covariance', 'load_chain','load_chain2']
+           'get_covariance', 'load_chain']
 
 
 class Chain(dict):
@@ -441,26 +440,6 @@ def confint2d(hist,which):
     return interp(which,cdf,H)
 
 
-def load_chain2(path):
-    """
-    Load a chain produced by metropolis_hastings2
-    """
-    dat=[]
-    with open(path) as f:
-        while True:
-            try: dat.append(cPickle.load(f))
-            except: break
-                
-    params, derived = dat[0]
-    chains = defaultdict(lambda: {k:[] for k in params+derived+['weight','lnl']})
-    
-    for source,samples in dat[1:]:
-        for i,k in enumerate(params): chains[source][k] += [s.x[i] for s in samples]
-        for i,k in enumerate(derived): chains[source][k] += [s.extra[i] for s in samples]
-        chains[source]['lnl'] += [s.lnl for s in samples]
-        chains[source]['weight'] += [s.weight for s in samples]
-    
-    return Chains([Chain({k:array(v) for k,v in chains[i].items()}) for i in sorted(chains.keys())])
 
 
 def load_chain(path,paramnames=None):

@@ -82,7 +82,10 @@ def main(args):
         if len(args['params.ini'])>1:
             raise Exception("Running multiple parameter files at once only available with --qsub.")
         else:
-            for _ in cosmoslik.sample(args['params.ini'][0]): pass
+            from cosmoslik import load_script
+            p = load_script(args['params.ini'][0])
+            p.init_plugins()
+            for _ in p.sample(): pass
 
     elif args['dict']:
         print args

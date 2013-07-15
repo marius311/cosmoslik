@@ -1,198 +1,331 @@
-from numpy import mean, sqrt, diag, inf, std, loadtxt, isinf, nan
-from collections import namedtuple
-from itertools import product, chain, takewhile
-import mpi, re, os, sys
-import params, plugins
-from cosmoslik_plugins.samplers.inspector import inspect
-from params import SectionDict
+from collections import OrderedDict
+import copy, threading, pkgutil, inspect, sys, os, socket
+from multiprocessing import Process, Pipe
 
-__all__ = ['lnl','sample','build','inspect','init']
+__all__ = ['load_script','create_script','load_init_script','Slik','SlikFunction',
+           'SlikDict','SlikPlugin','SlikSampler','param',
+           'SubprocessExtension','get_plugin','get_all_plugins']
 
-def lnl(x,p):
+
+def load_script(scriptfile):   
+    """ 
+    Read a CosmoSlik script. 
+    """ 
+    import imp
+    mymod = imp.new_module('_test')
+    with open(scriptfile) as f: code=f.read()
+    exec code in mymod.__dict__
     
-    #Convert vector x to nice named dictionary
-    p = p.copy(); p.update(zip(p.get_all_sampled().keys(),x))
+    #Clean out modules 
+    from types import ModuleType
+    for k,v in mymod.__dict__.items(): 
+        if isinstance(v,ModuleType): mymod.__dict__.pop(k)
+        
+    #Clean out builtins
+    mymod.__dict__.pop('__builtins__')
     
-    #Check priors
-    if not all(v[1] < p[k] < v[2] for k, v in p.get_all_sampled().items()): 
-        return inf, p
-    else: 
-        #Calculate derived parameters
-        for d in p['_derivers'].values(): d.add_derived(p)
-
-        #Evaluate models and call likelihoods
-        p['_model'] = SectionDict()
-        for m in p['_models'].values(): p['_model'].update(m.get(p,p['_models_required']))
-        tot_lnl = 0
-        p['_likelihood'] = SectionDict({k:nan for k in p['_likelihoods']})
-        for k,l in p['_likelihoods'].items():
-            lnl = p['_likelihood'][k] = l.lnl(p,p['_model'])
-            tot_lnl += lnl
-            if isinf(lnl): break
-            
-        return tot_lnl,p
+    return Slik(**mymod.__dict__)
 
 
-def init(paramfile,**kwargs):
+def create_script(**kwargs):
+    return Slik(**kwargs)
 
-    #cd into parameter directory to correctly resolve relative filename
-    curdir = os.curdir
-    os.chdir(os.path.dirname(os.path.abspath(paramfile)))
-    paramfile = os.path.basename(paramfile)
-    
-    #load ini
-    p=params.load_ini(paramfile,**kwargs)
-
-    #Import the various modules
-    for k in ['likelihoods','models','derivers','samplers']:
-        p['_%s'%k] = {m:plugins.get_plugin('%s.%s'%(k,m))() for m in p.get(k,'').split()}
-
-    #Initialize modules
-    for k in ['likelihoods','models','derivers','samplers']:
-        for m in p['_%s'%k].values(): 
-            print 'Initializing %s...'%m.__class__.__name__
-            m.init(p)
-            
-    p['_models_required']=set(chain(*[l.get_required_models(p) for l in p['_likelihoods'].values()]))
-    
-    #Sampled and outputted parameters and covariance   
-    for l in p['_likelihoods'].values():
-        for k, v in l.get_extra_params(p).items(): 
-            p.setdefault(l.__class__.__name__).add_sampled_param(k,*v)
-    p['_cov'] = initialize_covariance(p)
-
-    
-    #cd back into original directory
-    if 'output_file' in p: p['output_file'] = os.path.abspath(p['output_file'])
-    os.chdir(curdir)
+def load_init_script(scriptfile):
+    p = load_script(scriptfile)
+    p.init_plugins()
     return p
+
+
+
+class Slik(object):
     
-
-def sample(paramfile,**kwargs):
-    if isinstance(paramfile,dict): p=paramfile
-    else: p = init(paramfile,**kwargs)
-
-    sampled = p.get_all_sampled().keys()
-    outputted = sampled + [tuple(k.split('.')) for k in p.get('derived','').split()]
-    #Prep output file
-    if 'output_file' in p:
-        f = open(p['output_file'],'w')
-        f.write("# lnl weight "+" ".join(['.'.join(k) for k in outputted])+"\n")
-    else: f = None
+    def __init__(self,params):
+        self.params = params
         
-    #Run samplers
-    samples = namedtuple('sampletuple',['x','weight','lnl','params'])([],[],[],[])
-    for sampler in p['_samplers'].values():
-        print "Starting %s sampler..."%sampler.__class__.__name__
-        for (nsamp,s) in enumerate(sampler.sample([p[k] for k in sampled],lnl,p),1):
-            yield s
-            x1, w1, l1, p1 = s
-                          
-#            #Add derived if they're not in there
-#            if p1==None or not all(k in p1 for k in p['_output']): 
-#                p1 = p.copy(); p.update(p1); p.update(zip(p['_sampled'],x1))
-#                for d in derivers: d.add_derived(p1)
-#                assert all(k in p1 for k in outputted), "Derivers didn't calculate all the derived parameters. Check 'output' key or add derivers."
-
-            if w1!=0:
-                for (l,v) in zip(samples,(x1, w1, l1, None)): l.append(v)
-
-            if f!=None and w1!=0: 
-                f.write(' '.join(map(str,[l1,w1]+[p1[name] for name in outputted]))+'\n')
-                f.flush()
-                
-            if nsamp%p.get('update_frequency',1)==0:
-                print "%saccepted=%s/%i(%.1f%%) best=%.2f last={%s}" % \
-                    ('' if mpi.get_rank()==0 else 'Chain %i: '%mpi.get_rank(),
-                     len(samples.weight),
-                     nsamp,
-                     100*float(len(samples.weight))/nsamp,
-                     min(samples.lnl+[inf]),
-                     ', '.join([('like:%.2f'%l1)]+['%s:%s'%('.'.join(name),'%.4g'%p1[name] if isinstance(p1[name],float) else p1[name])
-                                                   for name in outputted if name in p1])
-                     ) 
-
-    if f!=None: f.close()
-    
-    if 'dump_samples' in p:
-        import cPickle
-        with open(p['dump_samples'],'w') as f: cPickle.dump(tuple(samples), f, 2)
+#        def add_slik_functions(slikdict):
+#            for k in dir(slikdict): 
+#                v=getattr(slikdict,k)
+#                if isinstance(v,SlikDict): add_slik_functions(v)
+#                elif hasattr(v,'_slik_function'): 
+#                    def _make_slik_function(v):
+#                        def _slik_function(*args,**kwargs):
+#                            return v(self,*args,**kwargs)
+#                        _slik_function.__doc__ = v.__doc__
+#                        return _slik_function
+#                    setattr(self,k,_make_slik_function(v))
+#        
+#        add_slik_functions(self.params)
         
         
-def initialize_covariance(params):
-    """Load the sigma, defaulting to diagonal entries from the WIDTH of each parameter."""
-    v=params.get("proposal_matrix","")
-    if (v==""): prop_names, prop = [], None
-    else: 
-        with open(v) as f:
-            prop_names = [tuple(k.split('.')) for k in re.sub("#","",f.readline()).split()]
-            prop = loadtxt(f)
-    sampled = params.get_all_sampled()
-    sigma = diag([v[3]**2 for v in sampled.values()])
-    common = set(sampled.keys()) & set(prop_names)
-    if common: 
-        idxs = zip(*(list(product([ps.index(n) for n in common],repeat=2)) for ps in [sampled.keys(),prop_names]))
-        for ((i,j),(k,l)) in idxs: sigma[i,j] = prop[k,l]
-    return sigma
-
-
-
-def build(module=None, args=None, message=('built','build')):
-
-    if not os.path.exists(os.path.join(os.path.dirname(__file__),'..','Makefile.inc')):
-        raise Exception(("Create a 'Makefile.inc' before building plugins.\n"
-                         "See 'Makefile.inc.example' for help."))
-
-    rootdir = os.path.join(os.path.dirname(__file__),'plugins')
-
-    def build_module(module):
-        dirname = os.path.abspath(os.path.join(rootdir,os.sep.join(module.split('.'))))
-        filenames = os.listdir(dirname)
-        build_command = None
-        if 'setup.py' in filenames:
-            build_command = 'cd %s && python setup.py '%dirname + (args or 'build')
-        elif 'Makefile' in filenames:
-            build_command = 'cd %s && make '%dirname + (args or '')
-        if build_command is not None: 
-            print build_command
-            return os.system(build_command)==0
-
-
-    if module is None:
+        def _get_sampled(self,root):
+            all_sampled = {}
+            for k,v in self.__dict__.iteritems(): 
+                if isinstance(v,SlikDict): 
+                    all_sampled.update(_get_sampled(v,root=root+[k]))
+                elif isinstance(v,param):
+                    all_sampled[('.'.join(root+[k]))]=v 
+            return all_sampled
         
-        def walk(folder, outcomes=None):
-            if outcomes is None: outcomes = {}
-            if any([x in os.listdir(folder) for x in ['Makefile','setup.py']]):
-                module = '.'.join(folder.split(os.sep)[len(rootdir.split(os.sep)):])
-                outcomes[module] = build_module(module)
-            else:
-                for f in os.listdir(folder):
-                    newf = os.path.join(folder,f)
-                    if os.path.isdir(newf):
-                        walk(newf,outcomes)
-                        
-            return outcomes
+        self._sampled = OrderedDict(sorted([(k,v) for k,v in _get_sampled(params,[]).iteritems()]))
+        
+        self.sampler = self.params.sampler
+        del self.params.sampler
+        self.sampler.init(self)
+        
+        
+#    def init_plugins(self):
+#        for k in ['likelihoods','models','derivers','sampler']:
+#            for m in atleast_1d(getattr(self.params,k,[])): 
+#                if mpi.is_master(): 
+#                    print 'Initializing %s...'%m.__class__.__name__
+#                m.init(self.params)
+#
+#        self.sampler = self.params.sampler
+#        del self.params.sampler
+#        
+
+    def get_sampled(self):
+        return self._sampled
+        
+        
+    def evaluate(self,*args,**kwargs):
+        """
+        evaluate(*args) - args is a vector 
+        containing the values of the parameters in the order given by 
+        
+        or evluate(**kwagrs) - kwargs is a dictionary
+        containing a mapping of all the parameters to set
+        
+        returns (likelihood, params)
+        """
+        
+        
+        params = self.params.deepcopy()
+        
+        if len(args)>0 and len(kwargs)>0: raise ValueError("Expected either *args or **kwargs but not both.")
+        
+        if len(args)!=0:
+            for k,v in zip(self.get_sampled().keys(),args): params[k]=v
+        else:
+            for k,v in kwargs.items(): params[k]=v
             
-        
-        outcomes = walk(rootdir)
-        
-        if any(outcomes.values()):
-            sys.stdout.write('\033[92m')
-            print "Successfully %s:"%message[0]
-            for m,o in sorted(outcomes.items()): 
-                if o: print "  %s"%m
-            sys.stdout.write('\033[0m')
-        if not all(outcomes.values()):
-            sys.stdout.write('\033[93m')
-            print "Failed to %s (ignore if not used):"%message[1]
-            for m,o in sorted(outcomes.items()): 
-                if not o: print "  %s"%m
-            sys.stdout.write('\033[0m')
-            print ("To %s a single module at a time and see error messages,\n"
-                   "use './cosmoslik.py --build <module>' where <module> is the\n"
-                   "name of a module as it appears above.")%message[1]
+        return params(), params
+            
+            
+    def sample(self):
+        return self.sampler.sample(self.evaluate)
+    
+    
+
 
         
+        
+def SlikFunction(func):
+    func._slik_function = True
+    return func
+
+
+class SlikDict(dict):
+    
+    def __init__(self,*args,**kwargs):
+        super(SlikDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self
+        
+    def __setitem__(self,k,v):
+        if isinstance(k,str):
+            setattr(reduce(getattr, k.split('.')[:-1], self), k.split('.')[-1], v)
+        else:
+            raise ValueError("Parameter key must be string, not %s"%type(k))
+
+    def deepcopy(self):
+        cself = copy.copy(self)
+        for k,v in vars(self).items():
+            if isinstance(v,SlikDict): setattr(cself,k,v.deepcopy())
+        cself.update(vars(cself))
+        cself.__dict__ = cself
+        return cself
+    
+    def __getitem__(self,k):
+        if isinstance(k,str):
+            return reduce(getattr,k.split('.'),self)
+        else:
+            raise ValueError("Parameter key must be string, not %s"%type(k))
+    
+    def get(self,k,default):
+        if isinstance(k,str):
+            return reduce(lambda obj,k: getattr(obj,k,default),k.split('.'),self)
+        else:
+            raise ValueError("Parameter key must be string, not %s"%type(k))
+
+            
+
+class param(object):
+    def __init__(self,**kwargs):
+        self.__dict__.update(kwargs)
+
+
+class sample(object):
+    def __init__(self,x,lnl,extra):
+        self.x = x
+        self.lnl = lnl
+        self.extra = extra
+        
+
+
+class SlikPlugin(SlikDict):
+    
+    def __init__(self,*args,**kwargs):
+        """
+        Initialization code here.
+        """
+        super(SlikPlugin,self).__init__(*args,**kwargs)
+        
+    
+    def __call__(self,*args,**kwargs):
+        """
+        Calculation code here. 
+        """
+        raise NotImplementedError()
+
+
+class SlikSampler(SlikDict):
+    
+    def sample(self,lnl):
+        raise NotImplementedError()
+    
+    
+no_subproc = True
+    
+def SubprocessExtension(module_name,globals):
+    """
+    This imports a module and runs all of its code in a subprocess.
+    Its meant to be used by CosmoSlik plugins which load 
+    Python extension modules to facilitate clean exception handling. 
+    
+    If the plugin loads the extension module via ::
+    
+        from X import X
+        
+    then instead use ::
+    
+        X = SubprocessExtension('X',globals())
+    """
+    if no_subproc:
+        exec ('from %s import %s \n'
+              'mod = %s')%(module_name,module_name,module_name) in globals, locals()
+        return mod
     else:
-        build_module(module)
+        return _SubprocessExtension(module_name,globals)
+    
+    
+class _SubprocessExtension(object):
+    
+    def check_recv(self):
+        r = [None]
+        def recv(): r[0] = self._conn.recv()
+        th = threading.Thread(target=recv)
+        th.daemon=True
+        th.start()
+
+        while th.is_alive():
+            th.join(1e-3)
+            if not self._proc.is_alive(): 
+                raise Exception('Extension module died.\n%s'%self._subproc_stdout.read())
+        
+        if isinstance(r[0],Exception): raise r[0]
+        else: return r[0]
+    
+    def _flush_subproc_stdout(self):
+        try: self._subproc_stdout.read()
+        except IOError: pass
+        
+    def __init__(self, module_name, globals):
+        def subproc_code(conn, fd_out):
+            try:
+                #redirect output to a pipe back to the main process
+                for s in [1,2]: os.dup2(fd_out,s)
+                exec ('from %s import %s \n'
+                      'mod = %s')%(module_name,module_name,module_name) in globals, locals()
+                attrs = {k:(getattr(v,'__doc__',None),callable(v)) for k,v in vars(mod).items()}
+                conn.send(attrs)
+                while True:
+                    (attr, args, kwargs) = conn.recv()
+                    if attr in attrs and attrs[attr][1]: conn.send(getattr(mod,attr)(*args, **kwargs))
+                    else: conn.send(getattr(mod,attr))
+            except Exception, e: 
+                conn.send(e)
+                raise
+                return
+    
+        self._conn, conn_child = Pipe()
+        out_socket_parent, out_socket_child = socket.socketpair()
+        out_socket_parent.settimeout(0)
+        self._subproc_stdout = out_socket_parent.makefile()
+        self._proc = Process(target=subproc_code,args=(conn_child,out_socket_child.fileno()))
+        self._proc.daemon = True
+        self._proc.start()
+        self._attrs = self.check_recv()
+        
+    def __getattribute__(self, attr):
+        super_getattr = super(_SubprocessExtension,self).__getattribute__
+        try:
+            return super_getattr(attr)
+        except AttributeError:
+            if attr in self._attrs and self._attrs[attr][1]:
+                def wrap_method(*args, **kwargs):
+                    self._flush_subproc_stdout()
+                    self._conn.send((attr,args,kwargs))
+                    return self.check_recv()
+                wrap_method.__doc__ = self._attrs[attr][0]
+                return wrap_method
+            else:
+                super_getattr('_conn').send((attr,None,None))
+                return super_getattr('check_recv')()
+
             
+def get_plugin(name):
+    """
+    Return a CosmoSlikPlugin class for plugin name. 
+    name should be module path relative to cosmoslik.plugins
+    """
+    modname = name.split('.')[-1]
+    cls = __import__('cosmoslik_plugins.'+name,fromlist=modname).__getattribute__(modname)
+    if not inspect.isclass(cls) or (SlikPlugin not in inspect.getmro(cls) and SlikSampler not in inspect.getmro(cls)):
+        raise Exception("Can't load plugin '%s'. It does not appear to be a CosmoSlik plugin."%name)
+    return cls
+        
+        
+def get_all_plugins():
+    """
+    Gets all valid CosmoSlik plugins found in the 
+    namespace package cosmoslik.plugins.
+    
+    The return value is a list of (name, class, type) for each plugin.
+    
+    Valid plugins are any module X which has an attribute X which 
+    is a subclass of CosmoSlikPlugin. If multiple references to
+    X exist in the package, only the shallowest one is returned.  
+    """
+    import cosmoslik_plugins
+    plugins = dict()
+    for _,fullname,_ in  pkgutil.walk_packages(cosmoslik_plugins.__path__,cosmoslik_plugins.__name__+'.'):
+        try:
+            modname = fullname.split('.')[-1]
+            mod = __import__(fullname,fromlist=modname)
+            cls = mod.__getattribute__(modname)
+            mro = inspect.getmro(cls)
+            if CosmoSlikPlugin in mro and len(plugins.get(cls,(fullname,))[0])>=len(fullname): 
+                for t in [Likelihood, Model, Sampler, Deriver]: 
+                    if t in mro: 
+                        typ = t.__name__
+                        break
+                else: continue
+                plugins[cls] = (fullname,typ)
+        except Exception:
+            pass
+        
+    plugins = sorted([(fullname,cls,typ) for cls, (fullname, typ) in plugins.items()])
+    return plugins
+
+
+
