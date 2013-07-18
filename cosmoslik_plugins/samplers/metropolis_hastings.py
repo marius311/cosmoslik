@@ -6,8 +6,6 @@ import cosmoslik.mpi as mpi, re, time
 import cPickle
 from collections import defaultdict
 
-from cosmoslik.plugin_tools import *
-
 from cosmoslik import SlikSampler, SlikFunction, param
 from cosmoslik_plugins.samplers.covbased import CovBased
 from cosmoslik.chains.chains import Chain, Chains

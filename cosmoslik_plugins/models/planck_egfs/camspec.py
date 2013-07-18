@@ -12,6 +12,7 @@ class camspec(egfs):
         super(camspec,self).__init__(**kwargs)
         
         self.norm_ell = float(norm_ell)
+        self.tsz_norm_fr = float(tsz_norm_fr)
         
         self.dir = os.path.dirname(os.path.abspath(__file__))
         padding = zeros(10000)
