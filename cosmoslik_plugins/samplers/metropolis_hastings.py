@@ -16,6 +16,29 @@ class mcmc_sample(sample):
         self.weight = weight
         super(mcmc_sample,self).__init__(*args,**kwargs)
 
+
+@SlikFunction
+def load_chain(output_file):
+    """
+    Load a chain produced by metropolis_hastings2
+    """
+    dat=[]
+    with open(output_file) as f:
+        while True:
+            try: dat.append(cPickle.load(f))
+            except: break
+                
+    params, derived = dat[0]
+    chains = defaultdict(lambda: {k:[] for k in params+derived+['weight','lnl']})
+    
+    for source,samples in dat[1:]:
+        for i,k in enumerate(params): chains[source][k] += [s.x[i] for s in samples]
+        for i,k in enumerate(derived): chains[source][k] += [s.extra[i] for s in samples]
+        chains[source]['lnl'] += [s.lnl for s in samples]
+        chains[source]['weight'] += [s.weight for s in samples]
+    
+    return Chains([Chain({k:array(v) for k,v in chains[i].items()}) for i in sorted(chains.keys())])
+
     
 class metropolis_hastings(SlikSampler):
     """
@@ -120,27 +143,7 @@ class metropolis_hastings(SlikSampler):
         self.x0 = [slik.params[k].start for k in slik.get_sampled()]
         self.proposal_cov = self.initialize_covariance(slik)
             
-    @SlikFunction
-    def load_chain(self,slikself):
-        """
-        Load a chain produced by metropolis_hastings2
-        """
-        dat=[]
-        with open(self.output_file) as f:
-            while True:
-                try: dat.append(cPickle.load(f))
-                except: break
-                    
-        params, derived = dat[0]
-        chains = defaultdict(lambda: {k:[] for k in params+derived+['weight','lnl']})
-        
-        for source,samples in dat[1:]:
-            for i,k in enumerate(params): chains[source][k] += [s.x[i] for s in samples]
-            for i,k in enumerate(derived): chains[source][k] += [s.extra[i] for s in samples]
-            chains[source]['lnl'] += [s.lnl for s in samples]
-            chains[source]['weight'] += [s.weight for s in samples]
-        
-        return Chains([Chain({k:array(v) for k,v in chains[i].items()}) for i in sorted(chains.keys())])
+
         
         
     @SlikFunction
