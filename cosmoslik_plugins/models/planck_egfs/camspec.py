@@ -45,17 +45,17 @@ class camspec(egfs):
         comps['tsz'] = a_tsz * self.tsz_template[:lmax] * tszdep(freqs[0]['tsz'],freqs[1]['tsz'], self.tsz_norm_fr) 
         comps['ksz'] = a_ksz * self.ksz_template[:lmax] 
         
-        ell = arange(lmax)/self.norm_ell
+        ell = hstack([1,arange(1,lmax)/self.norm_ell])
         
         if frlbl==(100,100):
             comps['ps_100'] = a_ps_100*ell**2
         elif frlbl==(143,143):
             comps['ps_143'] = a_ps_143*ell**2
-            comps['cib_143'] = a_cib_143*ell**0.8
+            comps['cib_143'] = a_cib_143*ell**n_cib
             comps['tsz_cib'] = - 2 * xi * sqrt(a_tsz * tszdep(143,143,self.tsz_norm_fr) * a_cib_143) * self.tszxcib_template[:lmax]
         elif frlbl==(217,217):
             comps['ps_217'] = a_ps_217*ell**2
-            comps['cib_217'] = a_cib_217*ell**0.8
+            comps['cib_217'] = a_cib_217*ell**n_cib
         elif tuple(sorted(frlbl))==(143,217):
             comps['ps_143_217'] = r_ps*sqrt(a_ps_143*a_ps_217)*ell**2
             comps['cib_143_217'] = r_cib*sqrt(a_cib_143*a_cib_217)*ell**n_cib

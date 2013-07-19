@@ -55,6 +55,7 @@ class mspec_lnl(SlikPlugin):
         cl_model_matrix = cl_model.get_as_matrix(lrange=self.use).spec
         signal_matrix_spec = self.process_signal(self.signal).get_as_matrix(lrange=self.use,get_cov=False).spec
         
+        
         #Compute the likelihood  
         dcl = cl_model_matrix - signal_matrix_spec
         return dot(dcl,cho_solve(self.signal_matrix_cho_cov,dcl))/2

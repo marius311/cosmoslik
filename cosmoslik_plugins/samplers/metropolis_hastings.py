@@ -1,7 +1,8 @@
-from numpy import log, mean, array, sqrt, diag, genfromtxt, sum, dot, cov, inf, loadtxt, diag, product
+from numpy import log, mean, array, sqrt, diag, genfromtxt, sum, dot, cov, inf, loadtxt, diag, nan
 from random import random
 from numpy.random import multivariate_normal
 import cosmoslik.mpi as mpi, re, time
+from itertools import product
 
 import cPickle
 from collections import defaultdict
@@ -126,15 +127,21 @@ class metropolis_hastings(SlikSampler):
             prop_names, prop = [], None
         else: 
             with open(self.proposal_cov) as f:
-                prop_names = [tuple(k.split('.')) for k in re.sub("#","",f.readline()).split()]
+                prop_names = re.sub("#","",f.readline()).split()
                 prop = loadtxt(f)
                 
         sampled = slik.get_sampled()
-        sigma = diag([v.scale**2 for v in sampled.values()])
+        
+        for k,v in sampled.items():
+            if not (k in prop_names or hasattr(v,'scale')): 
+                raise ValueError("Parameter '%s' not in covariance and no scale given."%k)
+        
+        sigma = diag([getattr(v,'scale',0)**2 for v in sampled.values()])
         common = set(sampled.keys()) & set(prop_names)
         if common: 
-            idxs = zip(*(list(product([ps.index(n) for n in common],repeat=2)) for ps in [sampled.keys(),prop_names]))
+            idxs = zip(*list(list(product([ps.index(n) for n in common],repeat=2)) for ps in [sampled.keys(),prop_names]))
             for ((i,j),(k,l)) in idxs: sigma[i,j] = prop[k,l]
+            
         return sigma
 
     

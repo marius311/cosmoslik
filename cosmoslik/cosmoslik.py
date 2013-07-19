@@ -57,16 +57,7 @@ class Slik(object):
 #        add_slik_functions(self.params)
         
         
-        def _get_sampled(self,root):
-            all_sampled = {}
-            for k,v in self.__dict__.iteritems(): 
-                if isinstance(v,SlikDict): 
-                    all_sampled.update(_get_sampled(v,root=root+[k]))
-                elif isinstance(v,param):
-                    all_sampled[('.'.join(root+[k]))]=v 
-            return all_sampled
-        
-        self._sampled = OrderedDict(sorted([(k,v) for k,v in _get_sampled(params,[]).iteritems()]))
+        self._sampled = params.find_sampled()
         
         self.sampler = self.params.sampler
         del self.params.sampler
@@ -157,7 +148,19 @@ class SlikDict(dict):
         else:
             raise ValueError("Parameter key must be string, not %s"%type(k))
 
-            
+    def find_sampled(self):
+        
+        def _find_sampled(self,root):
+            all_sampled = {}
+            for k,v in self.__dict__.iteritems(): 
+                if isinstance(v,SlikDict): 
+                    all_sampled.update(_find_sampled(v,root=root+[k]))
+                elif isinstance(v,param):
+                    all_sampled[('.'.join(root+[k]))]=v 
+            return all_sampled
+        
+        return OrderedDict(sorted([(k,v) for k,v in _find_sampled(self,[]).iteritems()]))
+
 
 class param(object):
     def __init__(self,**kwargs):
