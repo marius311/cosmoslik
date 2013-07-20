@@ -1,40 +1,20 @@
 from collections import OrderedDict
 import copy, threading, pkgutil, inspect, sys, os, socket
 from multiprocessing import Process, Pipe
+from numpy import inf
+from imp import load_source
 
-__all__ = ['load_script','create_script','load_init_script','Slik','SlikFunction',
-           'SlikDict','SlikPlugin','SlikSampler','param',
-           'SubprocessExtension','get_plugin','get_all_plugins']
+__all__ = ['load_script','Slik','SlikFunction',
+           'SlikDict','SlikPlugin','SlikSampler','param','param_shortcut',
+           'SubprocessExtension','get_plugin','get_all_plugins',
+           'lsum','attach_slik_funcs']
 
 
 def load_script(scriptfile):   
     """ 
     Read a CosmoSlik script. 
     """ 
-    import imp
-    mymod = imp.new_module('_test')
-    with open(scriptfile) as f: code=f.read()
-    exec code in mymod.__dict__
-    
-    #Clean out modules 
-    from types import ModuleType
-    for k,v in mymod.__dict__.items(): 
-        if isinstance(v,ModuleType): mymod.__dict__.pop(k)
-        
-    #Clean out builtins
-    mymod.__dict__.pop('__builtins__')
-    
-    return Slik(**mymod.__dict__)
-
-
-def create_script(**kwargs):
-    return Slik(**kwargs)
-
-def load_init_script(scriptfile):
-    p = load_script(scriptfile)
-    p.init_plugins()
-    return p
-
+    return Slik(load_source('_test',scriptfile).main())
 
 
 class Slik(object):
@@ -331,4 +311,42 @@ def get_all_plugins():
     return plugins
 
 
+def lsum(*args):
+    """
+    *args is a list of no argument lambda functions
+    returns the sum of the returned values when each is evaluated
+    when/if a function returns inf, no other functions are evaluted
+    """
+    s = 0
+    for x in args:
+        s+=x()
+        if s==inf: break
+    return s
 
+
+def param_shortcut(*args):
+    """
+    *args is a list of keyword names, e.g. ['start','scale']
+    
+    returns a param constructor which converts the given *args to **kwargs 
+    based on the keywords given above.
+
+    Example:
+    
+    >> param = param_shortcut('start','scale')
+    >> p = param(1,2)
+    >> p
+    {'start':1, 'scale':2}
+
+    """
+    
+    class param_shortcut(param):
+        def __init__(self,*args2,**kwargs2):
+            kwargs2.update(dict(zip(args,args2)))
+            super(param_shortcut,self).__init__(**kwargs2)
+            
+    return param_shortcut
+
+
+def attach_slik_funcs(*args):
+    return lambda x: x
