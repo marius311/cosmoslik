@@ -136,9 +136,9 @@ class metropolis_hastings(SlikSampler):
             if not (k in prop_names or hasattr(v,'scale')): 
                 raise ValueError("Parameter '%s' not in covariance and no scale given."%k)
         
-        sigma = diag([getattr(v,'scale',0)**2 for v in sampled.values()])
+        sigma = diag([getattr(v,'scale')**2 if hasattr(v,'scale') else nan for v in sampled.values()])
         common = set(sampled.keys()) & set(prop_names)
-        if common: 
+        if common:
             idxs = zip(*list(list(product([ps.index(n) for n in common],repeat=2)) for ps in [sampled.keys(),prop_names]))
             for ((i,j),(k,l)) in idxs: sigma[i,j] = prop[k,l]
             
