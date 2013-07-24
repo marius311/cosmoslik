@@ -6,7 +6,7 @@ from itertools import product
 
 import cPickle
 from collections import defaultdict
-from cosmoslik import SlikSampler, SlikFunction, param
+from cosmoslik import SlikSampler, SlikFunction, param, all_kw
 from cosmoslik.chains.chains import Chain, Chains
 from cosmoslik.cosmoslik import sample
     
@@ -105,6 +105,7 @@ class metropolis_hastings(SlikSampler):
        
     
     def __init__(self, 
+                 params,
                  output_file=None,
                  output_extra_params=None,
                  num_samples=100,
@@ -116,12 +117,16 @@ class metropolis_hastings(SlikSampler):
         """
         """
         if output_extra_params is None: output_extra_params = []
-        ls = locals()
-        ls.pop('self')
-        super(metropolis_hastings,self).__init__(**ls)
+        super(metropolis_hastings,self).__init__(**all_kw(locals(),['params']))
+        
+        sampled = params.find_sampled()
+        self.chain_metadata = (params.keys(),self.output_extra_params)
+        self.x0 = [params[k].start for k in sampled]
+        self.proposal_cov = self.initialize_covariance(sampled)
+
         
     
-    def initialize_covariance(self,slik):
+    def initialize_covariance(self,sampled):
         """Load the sigma, defaulting to diagonal entries from the WIDTH of each parameter."""
         if (self.proposal_cov is None): 
             prop_names, prop = [], None
@@ -130,8 +135,6 @@ class metropolis_hastings(SlikSampler):
                 prop_names = re.sub("#","",f.readline()).split()
                 prop = loadtxt(f)
                 
-        sampled = slik.get_sampled()
-        
         for k,v in sampled.items():
             if not (k in prop_names or hasattr(v,'scale')): 
                 raise ValueError("Parameter '%s' not in covariance and no scale given."%k)
@@ -145,14 +148,6 @@ class metropolis_hastings(SlikSampler):
         return sigma
 
     
-    def init(self,slik):
-        self.chain_metadata = (slik.get_sampled().keys(),self.output_extra_params)
-        self.x0 = [slik.params[k].start for k in slik.get_sampled()]
-        self.proposal_cov = self.initialize_covariance(slik)
-            
-
-        
-        
     @SlikFunction
     def run(self,slikself):
         samps = list(slikself.sample())

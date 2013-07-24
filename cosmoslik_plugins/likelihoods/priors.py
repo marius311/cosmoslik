@@ -13,7 +13,6 @@ class priors(SlikPlugin):
             if hasattr(params[k], "range"): self.add_uniform_prior(k, *params[k].range)
             if hasattr(params[k], "min"): self.add_uniform_prior(k, params[k].min,inf)
             if hasattr(params[k], "max"): self.add_uniform_prior(k, -inf, params[k].max)
-#TODO        self.lambda_priors = []
     
     def add_gaussian_prior(self,param,mean,std):
         self.gaussian_priors.append((param,mean,std))

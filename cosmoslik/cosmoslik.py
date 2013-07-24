@@ -7,7 +7,7 @@ from imp import load_source
 __all__ = ['load_script','Slik','SlikFunction',
            'SlikDict','SlikPlugin','SlikSampler','param','param_shortcut',
            'SubprocessExtension','get_plugin','get_all_plugins',
-           'lsum','attach_slik_funcs']
+           'lsum','all_kw']
 
 
 def load_script(scriptfile):   
@@ -41,20 +41,8 @@ class Slik(object):
         
         self.sampler = self.params.sampler
         del self.params.sampler
-        self.sampler.init(self)
         
         
-#    def init_plugins(self):
-#        for k in ['likelihoods','models','derivers','sampler']:
-#            for m in atleast_1d(getattr(self.params,k,[])): 
-#                if mpi.is_master(): 
-#                    print 'Initializing %s...'%m.__class__.__name__
-#                m.init(self.params)
-#
-#        self.sampler = self.params.sampler
-#        del self.params.sampler
-#        
-
     def get_sampled(self):
         return self._sampled
         
@@ -348,5 +336,9 @@ def param_shortcut(*args):
     return param_shortcut
 
 
-def attach_slik_funcs(*args):
-    return lambda x: x
+
+def all_kw(ls,exclusions=None):
+    for k in (['self','args','kwargs'] 
+              + (exclusions if exclusions is not None else [])):
+        ls.pop(k,None)
+    return ls

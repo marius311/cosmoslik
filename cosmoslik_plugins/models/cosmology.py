@@ -1,4 +1,4 @@
-from cosmoslik import SlikPlugin
+from cosmoslik import SlikPlugin, all_kw
 
 class cosmology(SlikPlugin):    
     
@@ -17,7 +17,4 @@ class cosmology(SlikPlugin):
                  w = -1,
                  **kwargs):
         
-        super(cosmology,self).__init__(**kwargs)
-        self.update(locals())
-        self.pop('self')
-        self.pop('kwargs')
+        super(cosmology,self).__init__(**dict(all_kw(locals()),**kwargs))
