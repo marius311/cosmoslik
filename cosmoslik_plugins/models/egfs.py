@@ -1,8 +1,8 @@
-from cosmoslik.plugins import Model
+from cosmoslik import SlikPlugin
 from numpy import arange, loadtxt, hstack, pi, exp, zeros, ndarray
 import os
 
-class egfs(Model):
+class egfs(SlikPlugin):
     """
     
     =======================================================
@@ -32,31 +32,28 @@ class egfs(Model):
     
     """
     
-    def get_egfs(self, p, *args, **kwargs):
+    def get_egfs(self, *args, **kwargs):
         raise NotImplementedError()
     
-    def get_colors(self, p):
-        return None
+    def get_colors(self):
+        return {}
     
-    def get(self, p, required=None):
+    def plot(self, ax=None, *args, **kwargs):
+        from matplotlib.pyplot import subplot
+        if ax is None: ax = subplot(111)
+        comps = self.get_egfs(*args, **kwargs)
+        colors = self.get_colors()
+        for comp in (lambda key: comps if key is True else key)(kwargs.pop('plot')):
+            ax.plot(comps[comp],label=comp,**({'color':colors[comp]} if comp in colors else {}))
+    
+    def __call__(self, **kwargs):
         
-        def get_egfs(*args, **kwargs):
+        def get(**kwargs2):
+            kwargs2.update(kwargs)
+            return sum(self.get_egfs(**kwargs2).values())
+        
+        return get
             
-            comps = self.get_egfs(p, *args, **kwargs)
             
-            if 'plot' in kwargs:
-                from matplotlib.pyplot import subplot
-                ax = kwargs.pop('ax',None) or subplot(111)
-                colors = self.get_colors(p)
-                for comp in (lambda key: comps if key is True else key)(kwargs.pop('plot')):
-                    ax.plot(comps[comp],label=comp,**({'color':colors[comp]} if colors else {}))
                 
-            return sum(comps.values())
-
-        get_egfs.__reduce_ex__ = lambda _: (_dont_pickle,(),None,None,None)
-        
-        return {'egfs':get_egfs}
-    
-    
-def _dont_pickle(): pass 
 

@@ -3,9 +3,10 @@ from numpy import zeros, loadtxt, hstack, arange
 from ConfigParser import RawConfigParser
 from StringIO import StringIO
 
-from cosmoslik.plugins import Model, SubprocessExtension
+from cosmoslik import SlikPlugin, SubprocessExtension
 
-class camb(Model):
+
+class camb(SlikPlugin):
     """
     ====
     CAMB
@@ -61,34 +62,55 @@ class camb(Model):
     
     """
     
-    def init(self,p):
-        pcamb = p.get('camb',{})
-        self.cambdir = os.path.abspath(os.path.join(os.path.dirname(__file__),'camb'))
-        self.cambdefs = read_ini(pcamb.get('defaults',os.path.join(self.cambdir,'defaults.ini')))
-        self.cambdefs['HighLExtrapTemplate'] = os.path.abspath(os.path.join(self.cambdir,'HighLExtrapTemplate_lenspotentialCls.dat'))
-        self.cambdefs.update(pcamb)
-        self.camb = camb_f2py()
-
+    name_mapping = {'H0':'hubble',
+                    'As':'scalar_amp(1)',
+                    'ns':'scalar_spectral_index(1)',
+                    'nrun':'scalar_nrun(1)',
+                    'Yp':'helium_fraction',
+                    'tau':'re_optical_depth'}
     
-    
-    def get(self,p,required):
-        pcamb = p.get('camb',{})
-    
-        cambini = pcamb['ini'] = dict(self.cambdefs)
-        cambini.update(pcamb)
-        cambini.update(p)
+    def __init__(self):
+        super(camb,self).__init__()
         
-        Alens = p.get('Alens',1)
-        cambini['get_scalar_cls'] = doscal = any(x in required for x in ['cl_TT','cl_TE','cl_EE','cl_BB','cl_pp','cl_pT'])
-        cambini['get_tensor_cls'] = dotens = (p.get('r',0) != 0)
-        cambini['get_transfer'] = dotrans = any(x in required for x in ['lin_mpk','nonlin_mpk','trans'])
-        if 'nonlin_mpk' in required: cambini['do_nonlinear'] = min(1,cambini.get('do_nonlinear',1))
+        self._cambdir = os.path.abspath(os.path.join(os.path.dirname(__file__),'camb'))
+        self._cambdefs = read_ini(os.path.join(self._cambdir,'defaults.ini'))
+        self._cambdefs['HighLExtrapTemplate'] = os.path.abspath(os.path.join(self._cambdir,'HighLExtrapTemplate_lenspotentialCls.dat'))
+        self._camb = camb_f2py()
+        pass
+        
+    
+    def __call__(self,
+                 ombh2,
+                 omch2,
+                 H0,
+                 As,
+                 ns,
+                 tau,
+                 omnuh2=0,
+                 w=-1,
+                 Alens=1,
+                 r=0,
+                 nrun=0,
+                 omk=0,
+                 l_max_scalar=3000,
+                 l_max_tensor=3000,
+                 outputs=[],
+                 **kwargs):
+        
+        locs = locals()
+        cambini = dict(self._cambdefs)
+        cambini.update(locs)
+        
+        for k in cambini.keys():
+            if k in self.name_mapping: 
+                cambini[self.name_mapping[k]]=cambini.pop(k)
+        
+        cambini['get_scalar_cls'] = doscal = any(x in outputs for x in ['cl_TT','cl_TE','cl_EE','cl_BB','cl_pp','cl_pT'])
+        cambini['get_tensor_cls'] = dotens = (r != 0)
+        cambini['get_transfer'] = dotrans = any(x in outputs for x in ['lin_mpk','nonlin_mpk','trans'])
+        if 'nonlin_mpk' in outputs: cambini['do_nonlinear'] = min(1,cambini.get('do_nonlinear',1))
         cambini['do_lensing'] = dolens = (doscal and Alens != 0)
         docl = doscal or dolens or dotens 
-        if docl:
-            lmax = pcamb['lmax']
-            cambini['l_max_scalar'] = lmax + 50 + (100 if dolens else 0)
-            lmax_tens = cambini['l_max_tensor'] = p.get('lmax_tensor',lmax + 50)
         
         for k,v in cambini.items():
             if not isinstance(v,(float, int, str, bool)): cambini.pop(k)
@@ -96,7 +118,7 @@ class camb(Model):
         result = {}
 
         #Call CAMB
-        output = self.camb(**cambini)
+        output = self._camb(**cambini)
         
 
         try:
@@ -106,25 +128,25 @@ class camb(Model):
             if dotens: tens = dict(zip(['l','TT','EE','BB','TE'],output['tensor'].T))
             if dotrans: 
                 for x in ['lin_mpk','nonlin_mpk','trans']:
-                    if x in required: result[x]=output[x]
+                    if x in outputs: result[x]=output[x]
                     
             #Combine cl contributions
             if docl:
                 for x in ['TT','TE','EE','BB']: 
-                    if 'cl_%s'%x in required:
-                        result['cl_%s'%x] = zeros(lmax)
+                    if 'cl_%s'%x in outputs:
+                        result['cl_%s'%x] = zeros(l_max_scalar)
                         if doscal or dolens: 
-                            _lmax = min(lmax,(lens if dolens else scal)[x].shape[0])
+                            _lmax = min(l_max_scalar,(lens if dolens else scal)[x].shape[0])
                             result['cl_%s'%x][2:_lmax] += (((1-Alens)*scal[x][:_lmax-2] if x!='BB' and doscal else 0)) + (Alens*lens[x][:_lmax-2] if dolens else 0)
                         if dotens:
-                            _lmax = min(lmax,tens[x].shape[0])
+                            _lmax = min(l_max_tensor,tens[x].shape[0])
                             result['cl_%s'%x][2:_lmax] += tens[x][:_lmax-2]
                 if dolens:
-                    if 'cl_pp' in required: result['cl_pp'] = hstack([[0,0],scal['pp'][:lmax-2]])
-                    if 'cl_pT' in required: result['cl_pT'] = hstack([[0,0],scal['pT'][:lmax-2]])
+                    if 'cl_pp' in outputs: result['cl_pp'] = hstack([[0,0],scal['pp'][:l_max_scalar-2]])
+                    if 'cl_pT' in outputs: result['cl_pT'] = hstack([[0,0],scal['pT'][:l_max_scalar-2]])
 
             #TODO: figure out where to put this stuff
-            p['z_drag'] = float(output['misc']['z_drag'])
+            result['zdrag'] = float(output['misc']['z_drag'])
         
         except Exception as e:
             print e
@@ -132,8 +154,8 @@ class camb(Model):
             raise
             #raise Exception("""An error occurred reading CAMB result: %s \nCAMB output:\n"""%repr(e)+output.get('stdout',''))
 
+        return result #TODO make result class
 
-        return result
 
 def read_ini(ini):
     """Read CAMB ini into dictionary"""

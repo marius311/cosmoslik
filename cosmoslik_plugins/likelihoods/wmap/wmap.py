@@ -1,5 +1,5 @@
 from numpy import zeros
-from cosmoslik.plugins import Likelihood, SubprocessExtension
+from cosmoslik import Likelihood, SubprocessExtension
 import os
 
 class wmap(Likelihood):
@@ -74,26 +74,25 @@ class wmap(Likelihood):
     """
     
 
-    def init(self,p):
-        self.use = p.get(('wmap','use'),['TT','TE','EE','BB'])
-        ttmin, ttmax = p.get(('wmap','TT.lrange'),(2,1200))
-        temin, temax = p.get(('wmap','TE.lrange'),(2,800))
-        datadir = p.get(('wmap','data_dir'),None)
-        if not datadir: raise Exception('Please specify the WMAP data directory in the parameter file with:\n[wmap]{\n  data_dir=/path/to/wmap/data\n}')
-        elif not os.path.exists(datadir): raise Exception("The WMAP data directory you specified does not exist: '%s'"%datadir)
+    def __init__(self,
+                 datadir,
+                 use=['TT','TE','EE','BB'],
+                 ttmin=2,ttmax=1200,
+                 temin=2,temax=800):
+        
+        self.use = use
+        if not os.path.exists(datadir): raise Exception("The WMAP data directory you specified does not exist: '%s'"%datadir)
 
         self.pywmap = SubprocessExtension('pywmap',globals())
         self.pywmap.wmapinit(ttmin,ttmax,temin,temax,os.path.normpath(datadir)+'/')
     
-    def get_required_models(self, p):
-        return ['cl_%s'%x for x in self.use]
     
-    def lnl(self, p, model):
+    def __call__(self, cmb):
         cltt, clte, clee, clbb = [zeros(1202) for _ in range(4)]
         
         for cl,x in zip([cltt,clte,clee,clbb],['TT','TE','EE','BB']):
             if x in self.use:
-                m = model['cl_%s'%x]
+                m = cmb['cl_%s'%x]
                 s = slice(0,min(len(m),len(cl)))
                 cl[s] = m[s]
     

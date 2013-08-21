@@ -1,32 +1,30 @@
 import pypico
-import cosmoslik_plugins.models.camb as camb
-from cosmoslik.plugins import Model
+from cosmoslik_plugins.models.camb import camb
+from cosmoslik import SlikPlugin
 
-class pico(Model):
+class pico(SlikPlugin):
     
-    num_pico = 0
-    num_camb = 0
+    name_mapping = camb.name_mapping
     
-    def init(self,p):
-        try: datafile = p['pico','datafile']
-        except KeyError: raise Exception("Please specify [pico]{datafile = ... }")
-        else: self.pico = pypico.load_pico(*([datafile] if isinstance(datafile,str) else datafile))
-            
-        if 'z_drag' in p['derived']:
-            self.camb = camb.camb()
-            self.camb.init(p)
-        else:
-            self.camb = None
+    def __init__(self,
+                 datafile):
         
-    def get(self,p,required):
-        if (self.num_pico+self.num_camb)%10==0 and p.get('pico_verbose',False): print 'PICO=%i CAMB=%i'%(self.num_pico,self.num_camb)
-        try: 
-            r = self.pico.get(outputs=[r for r in required if r in self.pico.outputs()],**p)
-            if self.camb is not None: self.camb.get(p,['z_drag'])
-            self.num_pico+=1
-            return r
-        except pypico.CantUsePICO as e: 
-            self.num_camb+=1
-            print e
-            print 'Calling CAMB...'
-            return self.camb.get(p,required)
+        super(pico,self).__init__()
+        self.pico = pypico.load_pico(datafile)
+            
+    def __call__(self,
+                 outputs=[],
+                 force=False,
+                 onfail=None,
+                 **kwargs):
+        
+        for k in kwargs.keys():
+            if k in self.name_mapping: 
+                kwargs[self.name_mapping[k]]=kwargs.pop(k)
+
+        try:
+            return self.pico.get(outputs=outputs,force=force,**kwargs)
+        except pypico.CantUsePICO: 
+            if onfail is None: raise
+            else: return onfail(outputs=outputs,**kwargs)
+            
