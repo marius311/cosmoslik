@@ -120,7 +120,7 @@ class metropolis_hastings(SlikSampler):
         super(metropolis_hastings,self).__init__(**all_kw(locals(),['params']))
         
         sampled = params.find_sampled()
-        self.chain_metadata = (params.keys(),self.output_extra_params)
+        self.chain_metadata = (sampled.keys(),self.output_extra_params)
         self.x0 = [params[k].start for k in sampled]
         self.proposal_cov = self.initialize_covariance(sampled)
 
