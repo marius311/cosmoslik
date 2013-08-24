@@ -189,8 +189,7 @@ class metropolis_hastings(SlikSampler):
         cPickle.dump(self.chain_metadata,self._output_file)
         self._output_file.flush()
         
-        if mpi.get_size()==1: return self._mcmc(self.x0,lnl)
-        else: return self._mpi_mcmc(self.x0,lnl)
+        return self._mpi_mcmc(self.x0,lnl)
     
     
     
@@ -215,42 +214,54 @@ class metropolis_hastings(SlikSampler):
     def _mpi_mcmc(self,x,lnl):  
     
         (rank,size,comm) = mpi.get_mpi()
-        from mpi4py import MPI #FIX THIS
-        
-        if rank==0:
-            finished = [False]*(size-1)
-            samples, weights, lnls = [[[] for _ in range(size-1)] for __ in range(3)] 
-            while (not all(finished)):
-                while not comm.Iprobe(source=MPI.ANY_SOURCE, tag=0): time.sleep(.1) #Hack so OpenMPI doesn't eat 100% CPU
-                (source,new_samples)=comm.recv(source=MPI.ANY_SOURCE)
-                if (new_samples!=None): 
-                    lnls[source-1]+=[s.lnl for s in new_samples]
-                    samples[source-1]+=[s.x for s in new_samples]
-                    weights[source-1]+=[s.weight for s in new_samples]
-                    
-                    if self.proposal_update and sum(weights[source-1])>self.proposal_update_start:
-                        comm.send({"proposal_cov":get_new_cov(samples,weights)},dest=source)
-                    else: 
-                        comm.send({},dest=source)
-                    
-                    cPickle.dump((source,[s for s in new_samples if s.weight>0]),self._output_file,protocol=2)
-                    self._output_file.flush()
-                else: 
-                    finished[source-1]=True
-                    
+        if mpi.get_size()==1:
+            sampler = self._mcmc(x, lnl)
+            while True:
+                samples = []
+                for _ in range(self.mpi_comm_freq):
+                    s = sampler.next()
+                    extra=array([s.extra[k] for k in self.output_extra_params])
+                    samples.append(mcmc_sample(s.weight,s.x,s.lnl,extra))
+                cPickle.dump((0,[s for s in samples if s.weight>0]),self._output_file,protocol=2)
+
         else:
-            samples = []
-            for s in self._mcmc(x, lnl):
-                yield s
-                extra=array([s.extra[k] for k in self.output_extra_params])
-                samples.append(mcmc_sample(s.weight,s.x,s.lnl,extra))
-                if len(samples)==self.mpi_comm_freq:
-                    comm.send((rank,samples),dest=0)
-                    self.__dict__.update(comm.recv(source=0))
-                    samples = []
-                    
-            comm.send((rank,samples),dest=0)
-            comm.send((rank,None),dest=0)
+        
+            from mpi4py import MPI #FIX THIS
+            
+            if rank==0:
+                finished = [False]*(size-1)
+                samples, weights, lnls = [[[] for _ in range(size-1)] for __ in range(3)] 
+                while (not all(finished)):
+                    while not comm.Iprobe(source=MPI.ANY_SOURCE, tag=0): time.sleep(.1) #Hack so OpenMPI doesn't eat 100% CPU
+                    (source,new_samples)=comm.recv(source=MPI.ANY_SOURCE)
+                    if (new_samples!=None): 
+                        lnls[source-1]+=[s.lnl for s in new_samples]
+                        samples[source-1]+=[s.x for s in new_samples]
+                        weights[source-1]+=[s.weight for s in new_samples]
+                        
+                        if self.proposal_update and sum(weights[source-1])>self.proposal_update_start:
+                            comm.send({"proposal_cov":get_new_cov(samples,weights)},dest=source)
+                        else: 
+                            comm.send({},dest=source)
+                        
+                        cPickle.dump((source,[s for s in new_samples if s.weight>0]),self._output_file,protocol=2)
+                        self._output_file.flush()
+                    else: 
+                        finished[source-1]=True
+                        
+            else:
+                samples = []
+                for s in self._mcmc(x, lnl):
+                    yield s
+                    extra=array([s.extra[k] for k in self.output_extra_params])
+                    samples.append(mcmc_sample(s.weight,s.x,s.lnl,extra))
+                    if len(samples)==self.mpi_comm_freq:
+                        comm.send((rank,samples),dest=0)
+                        self.__dict__.update(comm.recv(source=0))
+                        samples = []
+                        
+                comm.send((rank,samples),dest=0)
+                comm.send((rank,None),dest=0)
 
        
        
