@@ -23,15 +23,16 @@ from setuptools.command import easy_install
 #        ctx.environ[k.upper()] = v
         
 
-def recurse(ctx, keep_going=False):
+def recurse(ctx, keep_going=False, exclude=[]):
     success, fail = [],[]
-    for f in ctx.path.ant_glob('cosmoslik_plugins/**/wscript'): 
-        try:
-            ctx.recurse(f.parent.abspath())
-            success.append(f.parent)
-        except: 
-            if keep_going: fail.append(f.parent)
-            else: raise
+    for f in ctx.path.ant_glob('cosmoslik_plugins/**/wscript'):
+        if not f.parent in exclude:
+            try:
+                ctx.recurse(f.parent.abspath())
+                success.append(f.parent)
+            except: 
+                if keep_going: fail.append(f.parent)
+                else: raise
     return success,fail
 
     
@@ -39,7 +40,7 @@ def options(opt, keep_going=True):
     opt.add_option('--inplace', action='store_true', default=False,
                 help='install CosmoSlik in this directory')
     opt.add_option('--plugin', nargs=1, help='configure single plugin', dest='PLUGIN')
-    opt.add_option('--exclude', nargs='?', help='dont build certain plugins', dest='EXCLUDE')
+    opt.add_option('--exclude', action='append', nargs=1, help="don't build certain plugins", dest='EXCLUDE')
     recurse(opt, keep_going=True)
 
 
@@ -87,7 +88,11 @@ def configure(conf):
         success, fail = [conf.srcnode.find_node("cosmoslik_plugins").make_node(conf.options.PLUGIN)], []
         conf.recurse(success[0].abspath())
     else:
-        success, fail = recurse(conf,keep_going=True)
+        if conf.options.EXCLUDE is not None:
+            exclude = [conf.srcnode.find_node("cosmoslik_plugins/").find_node(e) for e in conf.options.EXCLUDE]
+        else:
+            exclude = []
+        success, fail = recurse(conf,keep_going=True,exclude=exclude)
         
     if len(success)>0:
         sys.stdout.write('\033[1m')
