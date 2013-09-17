@@ -28,6 +28,7 @@ class mspec_lnl(SlikPlugin):
         self.signal_matrix_cho_cov = cholesky(self.signal_matrix_cov), False
         
         
+        
     def process_signal(self, sig):
         """Get processed signal, appyling calibration, doing linear combination, etc.."""
               
@@ -42,7 +43,7 @@ class mspec_lnl(SlikPlugin):
         
         _egfs = egfs if isinstance(egfs,dict) else defaultdict(lambda: egfs)
         
-        return M.PowerSpectra({(a,b):cmb['cl_TT'][:lmax] + _egfs[(a,b)](spectra='cl_TT',lmax=lmax,**self.egfs_kwargs[(a,b)])
+        return M.PowerSpectra({(a,b):cmb['cl_%s%s'%(a[0],b[0])][:lmax] + _egfs[(a,b)](spectra='cl_TT',lmax=lmax,**self.egfs_kwargs.get((a,b),{}))
                                for (a,b),(lmin,lmax) in self.use.items()})
 
 
