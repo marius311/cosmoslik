@@ -50,7 +50,7 @@ class main(SlikPlugin):
         self.mspec = get_plugin('likelihoods.mspec_lnl')(
             signal=signal,
             
-            cleaning={#('T','100'):{('T','100'):1},
+            cleaning={('T','100'):{('T','100'):1},
                       ('E','100'):{('E','100'):1}
                       #('T','143'):{('T','143'):1},
                       #('T','217c'):{('T','217'):1,
@@ -89,7 +89,8 @@ class main(SlikPlugin):
         self.cosmo.Yp = self.bbn(**self.cosmo)
         self.cosmo.H0 = self.hubble_theta.theta_to_hubble(**self.cosmo)
         
-        self.cmb_result = self.get_cmb(outputs=['cl_TT','cl_TE','cl_EE'],force=True,**self.cosmo)
+        #self.cmb_result = self.get_cmb(outputs=['cl_TT','cl_TE','cl_EE'],force=True,**self.cosmo)
+        self.cmb_result = self.get_cmb(outputs=['cl_TE','cl_EE'],force=True,**self.cosmo)
         egfs = self.get_egfs(**self.egfs)
         self.egfs_result = {(('T','100'),('T','100'))  :egfs,
                             (('T','143'),('T','143'))  :egfs,
