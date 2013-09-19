@@ -40,6 +40,8 @@ class camb(SlikPlugin):
                  r=0,
                  nrun=0,
                  omk=0,
+                 massive_neutrinos=3,
+                 massless_neutrinos=0.046,
                  l_max_scalar=3000,
                  l_max_tensor=3000,
                  outputs=[],

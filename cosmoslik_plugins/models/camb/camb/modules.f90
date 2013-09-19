@@ -394,6 +394,8 @@
               write(*,'("Om_Lambda            = ",f9.6)') CP%omegav
               write(*,'("Om_K                 = ",f9.6)') CP%omegak
               write(*,'("Om_m (1-Om_K-Om_L)   = ",f9.6)') 1-CP%omegak-CP%omegav
+              write(*,'("Num_Nu_massless      = ",f9.6)') CP%Num_Nu_massless
+              write(*,'("Num_Nu_massive       = ",I3)') CP%Num_Nu_massive
               write(*,'("100 theta (CosmoMC)  = ",f9.6)') 100*CosmomcTheta()
               if (CP%Num_Nu_Massive > 0) then
                 do nu_i=1, CP%Nu_mass_eigenstates 

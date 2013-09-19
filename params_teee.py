@@ -17,7 +17,8 @@ class main(SlikPlugin):
             omch2 = param(0.12),
             tau = param(0.09,min=0),
             theta = param(0.010413),
-            omnuh2 = 0.000645
+            #omnuh2 = 0.000645
+            omnuh2 = 0.000
         )
         
         self.egfs = SlikDict(
