@@ -139,7 +139,7 @@ class metropolis_hastings(SlikSampler):
             if not (k in prop_names or hasattr(v,'scale')): 
                 raise ValueError("Parameter '%s' not in covariance and no scale given."%k)
         
-        sigma = diag([getattr(v,'scale')**2 if hasattr(v,'scale') else nan for v in sampled.values()])
+        sigma = diag([getattr(v,'scale')**2. if hasattr(v,'scale') else nan for v in sampled.values()])
         common = set(sampled.keys()) & set(prop_names)
         if common:
             idxs = zip(*list(list(product([ps.index(n) for n in common],repeat=2)) for ps in [sampled.keys(),prop_names]))
@@ -185,9 +185,10 @@ class metropolis_hastings(SlikSampler):
             extra - the extra information returned by lnl
         """
         
-        self._output_file = open(self.output_file,"w")
-        cPickle.dump(self.chain_metadata,self._output_file)
-        self._output_file.flush()
+        if self.output_file is not None:
+            self._output_file = open(self.output_file,"w")
+            cPickle.dump(self.chain_metadata,self._output_file)
+            self._output_file.flush()
         
         return self._mpi_mcmc(self.x0,lnl)
     
@@ -219,11 +220,19 @@ class metropolis_hastings(SlikSampler):
             while True:
                 samples = []
                 for _ in range(self.mpi_comm_freq):
-                    s = sampler.next()
+                    try:
+                        s = sampler.next()
+                    except StopIteration:
+                        self._output_file.close()
+                        raise
+
+                    yield s
                     extra=array([s.extra[k] for k in self.output_extra_params])
                     samples.append(mcmc_sample(s.weight,s.x,s.lnl,extra))
-                cPickle.dump((0,[s for s in samples if s.weight>0]),self._output_file,protocol=2)
-
+                    
+                if self.output_file is not None:
+                    cPickle.dump((0,[s for s in samples if s.weight>0]),self._output_file,protocol=2)
+            
         else:
         
             from mpi4py import MPI #FIX THIS
