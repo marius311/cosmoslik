@@ -222,8 +222,9 @@ class metropolis_hastings(SlikSampler):
                 for _ in range(self.mpi_comm_freq):
                     try:
                         s = sampler.next()
-                    except StopIteration:
-                        self._output_file.close()
+                    except Exception:
+                        if self.output_file is not None:
+                            self._output_file.close()
                         raise
 
                     yield s
