@@ -69,7 +69,7 @@ class camb(SlikPlugin):
 
         #Call CAMB
         output = self._camb(**cambini)
-        
+        self.cambini = cambini
 
         try:
         
