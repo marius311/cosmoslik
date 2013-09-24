@@ -22,7 +22,9 @@ class priors(SlikPlugin):
     
     def __call__(self,params):
         for n, lower, upper in self.uniform_priors:
-            if not (lower<=params[n]<=upper): return inf
+            if not (lower<=params[n]<=upper): 
+                print lower, params[n], upper
+                return inf
         
         return sum((params[n]-c)**2./2/w**2 for n,c,w in self.gaussian_priors)
         
