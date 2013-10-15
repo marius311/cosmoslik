@@ -417,7 +417,7 @@ def likegrid1d(chains, params='all',
             for p in params}
     
     n=len(params)
-    for (i,p1) in enumerate(params,2):
+    for (i,p1) in enumerate(params,1 if labels is None else 2):
         ax=fig.add_subplot(nrow,ncol,i)
         if ticks is not None and p1 in ticks:
             ax.set_xticks(ticks[p1])
