@@ -323,9 +323,12 @@ def likegrid(chains, params=None,
         fig.legend([Line2D([0],[0],c=c) for c in colors],labels,fancybox=True,shadow=True,loc=legend_loc)
 
 
-def likegrid1d(chains, params=None,
+from collections import Iterable
+import operator as op
+
+def likegrid1d(chains, params='all',
              lims=None, ticks=None,
-             default_chain=0,
+             nsig=3,
              colors=None,
              nbins1d=30,
              labels=None,
@@ -351,7 +354,8 @@ def likegrid1d(chains, params=None,
        
     params, optional :
         list of parameter names which to show
-        (default: all parameters from default_chain)
+        can also be 'all' or 'common' which does the union/intersection of
+        the params in all the chains
        
     lims, optional :
         a dictionary mapping parameter names to (min,max) axes limits
@@ -394,34 +398,40 @@ def likegrid1d(chains, params=None,
     from matplotlib.pyplot import figure, Line2D
     fig = figure(0) if fig is None else (figure(fig) if isinstance(fig,int) else fig)
     if type(chains)!=list: chains=[chains]
-    if params==None: params = sorted(reduce(lambda x,y: set(x)&set(y), [c.params() for c in chains]))
+        
+    if params in ['all','common']: 
+        params = sorted(reduce(lambda x,y: (op.__or__ if params=='all' else op.__and__)(set(x),set(y)), [c.params() for c in chains]))
+    elif not isinstance(params,Iterable):
+        raise ValueError("params should be iterable or 'all' or 'common'")
+                         
     if param_name_mapping is None: param_name_mapping = {}
     nrow = len(params)/ncol+1
     if size is not None: fig.set_size_inches(size*ncol,size*nrow/aspect)
     if colors is None: colors=['b','orange','k','m','cyan']
     fig.subplots_adjust(hspace=0.4)
-   
-    c=chains[default_chain] if isinstance(default_chain,int) else default_chain
-    lims = dict({p:(max(min(c[p]),mean(c[p])-4*std(c[p])),min(max(c[p]),mean(c[p])+4*std(c[p]))) for p in params},**(lims if lims is not None else {}))
-    _ticks = dict({p:[t for t in ts if lims[p][0]<=t<=lims[p][1]] for (p,ts) in zip(params,(c.mean(params)+c.std(params)*transpose([[-2,0,2]])).T)})
-    if isinstance(ticks,dict): _ticks.update(ticks)
-
+       
+    if lims is None: lims = {}
+    lims = {p:(lims[p] if p in lims 
+               else (min(max(min(c[p]),mean(c[p])-nsig*std(c[p])) for c in chains if p in c.params()),
+                     max(min(max(c[p]),mean(c[p])+nsig*std(c[p])) for c in chains if p in c.params()))) 
+            for p in params}
+    
     n=len(params)
-    for (i,p1) in enumerate(params,1):
+    for (i,p1) in enumerate(params,2):
         ax=fig.add_subplot(nrow,ncol,i)
-        if ticks=='auto':
-            ax.set_xticks(_ticks[p1])
-            ax.set_xticklabels(['%.3g'%t for t in ticks[p1]])
-        ax.set_xlim(*lims[p1])
+        if ticks is not None and p1 in ticks:
+            ax.set_xticks(ticks[p1])
         for (ch,col) in zip(chains,colors):
             if p1 in ch: ch.like1d(p1,nbins=nbins1d,color=col,ax=ax)
         ax.set_yticks([])
-                   
+        ax.set_xlim(lims[p1])
+        ax.set_ylim(0,1)
         ax.set_title(param_name_mapping.get(p1,p1),size=param_label_size)
 
    
     if labels is not None:
-        fig.legend([Line2D([0],[0],c=c) for c in colors],labels,fancybox=True,shadow=True,loc=legend_loc)
+        fig.legend([Line2D([0],[0],c=c,linewidth=2) for c in colors],labels,fancybox=True,shadow=True,
+                   loc=legend_loc if legend_loc is not None else (0,1-1./nrow))
         
         
 def confint2d(hist,which):
