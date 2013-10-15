@@ -109,20 +109,22 @@ class metropolis_hastings(SlikSampler):
                  output_file=None,
                  output_extra_params=None,
                  num_samples=100,
+                 print_level=0,
                  proposal_cov=None,
                  proposal_scale=2.4,
                  proposal_update=True,
                  proposal_update_start=1000,
-                 mpi_comm_freq=50):
+                 mpi_comm_freq=50,
+                 yield_rejected=False):
         """
         """
         if output_extra_params is None: output_extra_params = []
         super(metropolis_hastings,self).__init__(**all_kw(locals(),['params']))
         
-        sampled = params.find_sampled()
-        self.chain_metadata = (sampled.keys(),self.output_extra_params)
-        self.x0 = [params[k].start for k in sampled]
-        self.proposal_cov = self.initialize_covariance(sampled)
+        self.sampled = params.find_sampled()
+        self.chain_metadata = (self.sampled.keys(),self.output_extra_params)
+        self.x0 = [params[k].start for k in self.sampled]
+        self.proposal_cov = self.initialize_covariance(self.sampled)
 
         
     
@@ -146,31 +148,7 @@ class metropolis_hastings(SlikSampler):
             for ((i,j),(k,l)) in idxs: sigma[i,j] = prop[k,l]
             
         return sigma
-
-    
-    @SlikFunction
-    def run(self,slikself):
-        samps = list(slikself.sample())
-        chain = Chain()
-        for i,k in enumerate(slikself.get_sampled()):
-            chain[k] = array([s.x[i] for s in samps])
-        chain['weight'] = array([s.weight for s in samps])
-        chain['lnl'] = array([s.lnl for s in samps])
-        return chain
-    
-
-    def print_sample(self):
-        pass
-        #        if nsamp%getattr(self,'update_frequency',1)==0:
-#            print "%saccepted=%s/%i(%.1f%%) best=%.2f last={%s}" % \
-#                ('' if mpi.get_rank()==0 else 'Chain %i: '%mpi.get_rank(),
-#                 len(samples.weight),
-#                 nsamp,
-#                 100*float(len(samples.weight))/nsamp,
-#                 min(samples.lnl+[inf]),
-#                 ', '.join([('like:%.2f'%l1)]+['%s:%s'%('.'.join(name),'%.4g'%self[name] if isinstance(self[name],float) else self[name])
-#                                               for name in outputted])
-#                 )
+  
 
         
     def sample(self,lnl):
@@ -184,7 +162,7 @@ class metropolis_hastings(SlikSampler):
             x - the vector of parameter values
             extra - the extra information returned by lnl
         """
-        
+        if mpi.is_master(): print 'Starting MCMC chain...'
         if self.output_file is not None:
             self._output_file = open(self.output_file,"w")
             cPickle.dump(self.chain_metadata,self._output_file)
@@ -193,7 +171,15 @@ class metropolis_hastings(SlikSampler):
         return self._mpi_mcmc(self.x0,lnl)
     
     
-    
+    def _mcmc_withprint(self,x0,lnl):
+        rank = mpi.get_rank()
+        for s in self._mcmc(x0, lnl):
+            if self.print_level >= 2: 
+                print 'Chain %i: lnl=%f, weight=%i, params={%s}'%\
+                    (rank,s.lnl, s.weight,
+                     ', '.join('%s=%.3g'%i for i in zip(self.sampled.keys(),s.x)))
+            yield s
+        
     def _mcmc(self,x0,lnl):
        
         cur_lnl, cur_weight, cur_x, cur_extra = inf, 0, x0, None
@@ -205,18 +191,27 @@ class metropolis_hastings(SlikSampler):
             if (log(random()) < cur_lnl-test_lnl):
                 if cur_lnl!=inf: 
                     yield(mcmc_sample(cur_weight, cur_x, cur_lnl, cur_extra))
-                    #TODO: print
                 cur_lnl, cur_weight, cur_x, cur_extra = test_lnl, 1, test_x, test_extra
             else:
+                if self.yield_rejected: yield(mcmc_sample(0,test_x,test_lnl,test_extra))
                 cur_weight += 1
                 
-            
-            
+    def _print_chain_stats(self,rank,samples,weights,lnls):
+        acc = len([w for w in weights if w!=0])
+        rej = sum(weights)
+        print 'Chain %i: %i/%i(%.2f%%) best=%.2f last={%s}'%\
+            (rank,
+             acc,
+             rej,
+             float(acc)/rej,
+             min(lnls),
+             ', '.join('%s=%.3g'%i for i in zip(self.sampled.keys(),samples[-1])))
+
     def _mpi_mcmc(self,x,lnl):  
     
         (rank,size,comm) = mpi.get_mpi()
         if mpi.get_size()==1:
-            sampler = self._mcmc(x, lnl)
+            sampler = self._mcmc_withprint(x, lnl)
             while True:
                 samples = []
                 for _ in range(self.mpi_comm_freq):
@@ -253,15 +248,19 @@ class metropolis_hastings(SlikSampler):
                             comm.send({"proposal_cov":get_new_cov(samples,weights)},dest=source)
                         else: 
                             comm.send({},dest=source)
-                        
-                        cPickle.dump((source,[s for s in new_samples if s.weight>0]),self._output_file,protocol=2)
-                        self._output_file.flush()
+                            
+                        if self.print_level>=1: 
+                            self._print_chain_stats(source,samples[source-1], weights[source-1], lnls[source-1])
+                            
+                        if self.output_file is not None:
+                            cPickle.dump((source,[s for s in new_samples if s.weight>0]),self._output_file,protocol=2)
+                            self._output_file.flush()
                     else: 
                         finished[source-1]=True
                         
             else:
                 samples = []
-                for s in self._mcmc(x, lnl):
+                for s in self._mcmc_withprint(x, lnl):
                     yield s
                     extra=array([s.extra[k] for k in self.output_extra_params])
                     samples.append(mcmc_sample(s.weight,s.x,s.lnl,extra))
