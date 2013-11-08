@@ -40,7 +40,7 @@ class camspec_slik(SlikPlugin):
         
     def __call__(self, cmb, egfs):
         
-        dcl = self.get_x[self.slice] - hstack(self.get_cl_model(cmb, egfs))[self.slice]
+        dcl = self.get_x()[self.slice] - hstack(self.get_cl_model(cmb, egfs))[self.slice]
         return dot(dcl,dot(self.cho_cov,dcl))/2
     
     def get_x(self):
@@ -49,6 +49,6 @@ class camspec_slik(SlikPlugin):
     
     def get_cl_model(self, cmb, egfs):
         return [cmb['cl_TT'][slice(*r)] + 
-                egfs('cl_TT',lmax=r[1],freqs=self.freqs[l])[slice(*r)] 
+                egfs(spectra='cl_TT',lmax=r[1],freqs=self.freqs[l])[slice(*r)] 
                 for r,l in zip(self.in_lrange, self.labels)]
         

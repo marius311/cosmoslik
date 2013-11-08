@@ -115,6 +115,7 @@ class metropolis_hastings(SlikSampler):
                  proposal_update=True,
                  proposal_update_start=1000,
                  mpi_comm_freq=50,
+                 temp=1,
                  yield_rejected=False):
         """
         """
@@ -188,7 +189,7 @@ class metropolis_hastings(SlikSampler):
             test_x = multivariate_normal(cur_x,self.proposal_cov/len(x0)*self.proposal_scale**2)
             test_lnl, test_extra = lnl(*test_x)
                     
-            if (log(random()) < cur_lnl-test_lnl):
+            if (log(random()) < self.temp*(cur_lnl-test_lnl)):
                 if cur_lnl!=inf: 
                     yield(mcmc_sample(cur_weight, cur_x, cur_lnl, cur_extra))
                 cur_lnl, cur_weight, cur_x, cur_extra = test_lnl, 1, test_x, test_extra
@@ -199,11 +200,11 @@ class metropolis_hastings(SlikSampler):
     def _print_chain_stats(self,rank,samples,weights,lnls):
         acc = len([w for w in weights if w!=0])
         rej = sum(weights)
-        print 'Chain %i: %i/%i(%.2f%%) best=%.2f last={%s}'%\
+        print 'Chain %i: %i/%i(%.1f%%) best=%.2f last={%s}'%\
             (rank,
              acc,
              rej,
-             float(acc)/rej,
+             100*float(acc)/rej,
              min(lnls),
              ', '.join('%s=%.3g'%i for i in zip(self.sampled.keys(),samples[-1])))
 
