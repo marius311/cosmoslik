@@ -1,4 +1,4 @@
-from cosmoslik import SlikPlugin
+from cosmoslik import SlikPlugin, param
 from numpy import inf
 
 class priors(SlikPlugin):
@@ -21,9 +21,10 @@ class priors(SlikPlugin):
         self.uniform_priors.append((param,min,max))
     
     def __call__(self,params):
+        param_ok = lambda n: not (isinstance(params.get(n),param))
         for n, lower, upper in self.uniform_priors:
-            if not (lower<=params[n]<=upper): 
+            if param_ok(n) and not (lower<=params[n]<=upper): 
                 return inf
         
-        return sum((params[n]-c)**2./2/w**2 for n,c,w in self.gaussian_priors)
+        return sum((params[n]-c)**2./2/w**2 for n,c,w in self.gaussian_priors if param_ok(n))
         
