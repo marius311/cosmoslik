@@ -49,6 +49,6 @@ class camspec_slik(SlikPlugin):
     
     def get_cl_model(self, cmb, egfs):
         return [cmb['cl_TT'][slice(*r)] + 
-                egfs('cl_TT',lmax=r[1],freqs=self.freqs[l])[slice(*r)] 
+                egfs(spectra='cl_TT',lmax=r[1],freqs=self.freqs[l])[slice(*r)] 
                 for r,l in zip(self.in_lrange, self.labels)]
         
