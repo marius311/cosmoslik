@@ -40,7 +40,7 @@ class camspec_slik(SlikPlugin):
         
     def __call__(self, cmb, egfs):
         
-        dcl = self.get_x[self.slice] - hstack(self.get_cl_model(cmb, egfs))[self.slice]
+        dcl = self.get_x()[self.slice] - hstack(self.get_cl_model(cmb, egfs))[self.slice]
         return dot(dcl,dot(self.cho_cov,dcl))/2
     
     def get_x(self):

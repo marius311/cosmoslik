@@ -20,7 +20,7 @@ class pico(SlikPlugin):
         
         for k in kwargs.keys():
             if k in self.name_mapping: 
-                kwargs[self.name_mapping[k]]=kwargs.pop(k)
+                kwargs[self.name_mapping[k]]=kwargs[k]
 
         try:
             return self.pico.get(outputs=outputs,force=force,**kwargs)

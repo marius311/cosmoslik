@@ -110,7 +110,7 @@ class SlikDict(dict):
         else:
             raise ValueError("Parameter key must be string, not %s"%type(k))
     
-    def get(self,k,default):
+    def get(self,k,default=None):
         if isinstance(k,str):
             return reduce(lambda obj,k: getattr(obj,k,default),k.split('.'),self)
         else:
