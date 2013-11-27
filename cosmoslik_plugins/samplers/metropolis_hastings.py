@@ -34,7 +34,9 @@ def load_chain(output_file):
     
     for source,samples in dat[1:]:
         for i,k in enumerate(params): chains[source][k] += [s.x[i] for s in samples]
-        for i,k in enumerate(derived): chains[source][k] += [s.extra[i] for s in samples]
+        for i,k in enumerate(derived): 
+            if k not in params:
+                chains[source][k] += [s.extra[i] for s in samples]
         chains[source]['lnl'] += [s.lnl for s in samples]
         chains[source]['weight'] += [s.weight for s in samples]
     
