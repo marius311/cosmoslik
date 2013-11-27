@@ -26,7 +26,6 @@ class camb(SlikPlugin):
         self._camb = camb_f2py()
         pass
         
-    
     def __call__(self,
                  ombh2,
                  omch2,
@@ -40,10 +39,13 @@ class camb(SlikPlugin):
                  r=0,
                  nrun=0,
                  omk=0,
+                 Yp=0.248,
                  massive_neutrinos=3.046,
                  massless_neutrinos=0.000,
+                 do_nonlinear=0,
                  l_max_scalar=3000,
                  l_max_tensor=3000,
+                 pivot_scalar=0.002,
                  outputs=[],
                  **kwargs):
         
