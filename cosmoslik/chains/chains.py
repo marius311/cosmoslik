@@ -495,12 +495,14 @@ def load_chain(path,paramnames=None):
                     with open(paramnames or pnfiles[0]) as f:
                         names = ['weight','lnl']+[line.split()[0] for line in f]
                         
-                with open(path) as f:
-                    if names==None: names = re.sub("#","",f.readline()).split()
-                    try: data = loadtxt(f).T
-                    except: data = [array([])]*len(names)
+                try:
+                    with open(path) as f:
+                        if names==None: names = re.sub("#","",f.readline()).split()
+                        data = loadtxt(f).T
+                    return Chain(zip(names,data))
+                except: 
+                    return None
                     
-                return Chain(zip(names,data))
         
         path = os.path.abspath(path)
         dir = os.path.dirname(path)
