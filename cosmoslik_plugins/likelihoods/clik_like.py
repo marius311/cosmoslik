@@ -1,36 +1,29 @@
-from cosmoslik.plugins import Likelihood
+from cosmoslik import SlikPlugin
 from numpy import hstack, zeros, arange, pi, inf, nan
 
-class clik_like(Likelihood):
+class clik_like(SlikPlugin):
     """
-    
-    [clik]{
-    
-        files = {'highL':'path...'}
-    
-        [highl]{
-            nuisance...
-        }
-    
-    }
-    
-    TODO: implement nuisance parameters
     
     """
     
     def __init__(self,
-                 clik_file):
+                 clik_file,
+                 **nuisance):
         
-        super(clik_like,self).__init__()
+        super(clik_like,self).__init__(**nuisance)
         
         import clik
-        self.clik = clik.clik(clik_file)
+        self.clik = clik.clik(clik_file)            
         
         
     def __call__(self, cmb):
-        lnl = -self.clik(hstack(tocl(cmb.get('cl_%s'%x,zeros(lmax+1))[:lmax+1])
-                         for x, lmax in zip(['TT','EE','BB','TE','TB','EB'],self.clik.get_lmax()) 
-                         if lmax!=-1))[0]
+        
+        cl = hstack(tocl(cmb.get('cl_%s'%x,zeros(lmax+1))[:lmax+1])
+                    for x, lmax in zip(['TT','EE','BB','TE','TB','EB'],self.clik.get_lmax()) 
+                    if lmax!=-1)
+        nuisance = [self[k] for k in self.clik.get_extra_parameter_names()]
+                
+        lnl = -self.clik(hstack([cl,nuisance]))[0]
         if lnl==0: return inf
         else: return lnl
             
