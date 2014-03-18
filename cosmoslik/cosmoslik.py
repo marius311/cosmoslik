@@ -63,10 +63,15 @@ class Slik(object):
         
         if len(args)>0 and len(kwargs)>0: raise ValueError("Expected either *args or **kwargs but not both.")
         
-        if len(args)!=0:
-            for k,v in zip(self.get_sampled().keys(),args): params[k]=v
-        else:
+        if len(args)==0:
+            missing = [k for k in self.get_sampled() if k not in kwargs]
+            if len(missing)>0:
+                raise ValueError("Missing the following parameters: %s"%missing)
             for k,v in kwargs.items(): params[k]=v
+        elif len(args)!=len(self.get_sampled()):
+            raise ValueError("Expected %i parameters, only got %i."%(len(self.get_sampled()),len(args)))
+        else:
+            for k,v in zip(self.get_sampled().keys(),args): params[k]=v
             
         return params(), params
             
