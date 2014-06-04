@@ -10,11 +10,12 @@ __all__ = ['load_script','Slik','SlikFunction',
            'lsum','all_kw']
 
 
-def load_script(scriptfile):   
+def load_script(scriptfile,*args,**kwargs):   
     """ 
     Read a CosmoSlik script. 
+    Passes *args and **kwargs to the script's __init__.
     """ 
-    return Slik(load_source('_test',scriptfile).main())
+    return Slik(load_source('_test',scriptfile).main(*args,**kwargs))
 
 
 class Slik(object):
