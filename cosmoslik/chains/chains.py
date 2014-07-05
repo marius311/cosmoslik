@@ -336,8 +336,10 @@ def likegrid1d(chains, params='all',
              size=2,
              aspect=1,
              legend_loc=None,
+             linewidth=1,
              param_name_mapping=None,
              param_label_size=None,
+             tick_label_size=None,
              ncol = 4):
     """
     Make a grid of 1-d likelihood contours.
@@ -422,11 +424,12 @@ def likegrid1d(chains, params='all',
         if ticks is not None and p1 in ticks:
             ax.set_xticks(ticks[p1])
         for (ch,col) in zip(chains,colors):
-            if p1 in ch: ch.like1d(p1,nbins=nbins1d,color=col,ax=ax)
+            if p1 in ch: ch.like1d(p1,nbins=nbins1d,color=col,ax=ax,linewidth=linewidth)
         ax.set_yticks([])
         ax.set_xlim(lims[p1])
         ax.set_ylim(0,1)
         ax.set_title(param_name_mapping.get(p1,p1),size=param_label_size)
+        if tick_label_size: ax.tick_params(labelsize=tick_label_size)
 
    
     if labels is not None:
