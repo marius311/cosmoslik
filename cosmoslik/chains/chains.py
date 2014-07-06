@@ -48,7 +48,11 @@ class Chain(dict):
     
     def matrix(self,params=None):
         """Return this chain as an nsamp * nparams matrix."""
-        return vstack([self[p] for p in (params if params else self.params())]).T
+        if params is None: params=self.params()
+        if is_iter(params) and not  isinstance(params,str):
+            return vstack([self[p] for p in (params if params else self.params())]).T
+        else:
+            return self[params]
     
     def cov(self,params=None): 
         """Returns the covariance of the parameters (or some subset of them) in this chain."""
@@ -151,7 +155,7 @@ class Chain(dict):
         
         
 class Chains(list):
-    """A list of chains, probably from several MPI runs"""
+    """A list of chains, e.g. from a run of several parallel chains"""
     
     def burnin(self,n): 
         """Remove the first n samples from each chain."""
@@ -521,3 +525,9 @@ def load_chain(path,paramnames=None):
         else: raise IOError("File not found: "+path) 
 
 
+def is_iter(x):
+    try: 
+        iter(x)
+        return True
+    except: 
+        return False
