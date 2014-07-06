@@ -338,7 +338,7 @@ def likegrid1d(chains, params='all',
              legend_loc=None,
              linewidth=1,
              param_name_mapping=None,
-             param_label_size=None,
+             param_label_size=18,
              tick_label_size=None,
              ncol = 4):
     """
@@ -428,8 +428,7 @@ def likegrid1d(chains, params='all',
         ax.set_yticks([])
         ax.set_xlim(lims[p1])
         ax.set_ylim(0,1)
-        ax.set_title(param_name_mapping.get(p1,p1),size=param_label_size)
-        if tick_label_size: ax.tick_params(labelsize=tick_label_size)
+        ax.set_title(param_name_mapping.get(p1,r'$\rm%s$'%p1),size=param_label_size)
 
    
     if labels is not None:

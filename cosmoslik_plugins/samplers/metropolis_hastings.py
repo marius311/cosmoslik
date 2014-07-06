@@ -1,14 +1,15 @@
 from numpy import log, mean, array, sqrt, diag, genfromtxt, sum, dot, cov, inf, loadtxt, diag, nan
-from random import random
-from numpy.random import multivariate_normal
-import cosmoslik.mpi as mpi, re, time
+from numpy.random import multivariate_normal, uniform, seed
+import cosmoslik.mpi as mpi
+import re, time
 from itertools import product
-
+from hashlib import md5
 import cPickle
 from collections import defaultdict
 from cosmoslik import SlikSampler, SlikFunction, param, all_kw
 from cosmoslik.chains.chains import Chain, Chains
 from cosmoslik.cosmoslik import sample
+import multiprocessing
     
     
     
@@ -118,6 +119,7 @@ class metropolis_hastings(SlikSampler):
                  proposal_update_start=1000,
                  mpi_comm_freq=50,
                  temp=1,
+                 reseed=True,
                  yield_rejected=False):
         """
         """
@@ -129,7 +131,6 @@ class metropolis_hastings(SlikSampler):
         self.x0 = [params[k].start for k in self.sampled]
         self.proposal_cov = self.initialize_covariance(self.sampled)
 
-        
     
     def initialize_covariance(self,sampled):
         """Load the sigma, defaulting to diagonal entries from the WIDTH of each parameter."""
@@ -165,7 +166,7 @@ class metropolis_hastings(SlikSampler):
             x - the vector of parameter values
             extra - the extra information returned by lnl
         """
-        if mpi.is_master(): print 'Starting MCMC chain...'
+        if mpi.is_master() and self.print_level>=1: print 'Starting MCMC chain...'
         if self.output_file is not None:
             self._output_file = open(self.output_file,"w")
             cPickle.dump(self.chain_metadata,self._output_file)
@@ -183,7 +184,14 @@ class metropolis_hastings(SlikSampler):
                      ', '.join('%s=%.3g'%i for i in zip(self.sampled.keys(),s.x)))
             yield s
         
+    def check_seed(self):
+        if self.reseed: 
+            seed(int(md5(str(time.time())+str(multiprocessing.current_process().pid)).hexdigest()[:8],base=16))
+
+
     def _mcmc(self,x0,lnl):
+
+        self.check_seed()
        
         cur_lnl, cur_weight, cur_x, cur_extra = inf, 0, x0, None
         
@@ -191,7 +199,7 @@ class metropolis_hastings(SlikSampler):
             test_x = multivariate_normal(cur_x,self.proposal_cov/len(x0)*self.proposal_scale**2)
             test_lnl, test_extra = lnl(*test_x)
                     
-            if (log(random()) < self.temp*(cur_lnl-test_lnl)):
+            if (log(uniform()) < self.temp*(cur_lnl-test_lnl)):
                 if cur_lnl!=inf: 
                     yield(mcmc_sample(cur_weight, cur_x, cur_lnl, cur_extra))
                 cur_lnl, cur_weight, cur_x, cur_extra = test_lnl, 1, test_x, test_extra

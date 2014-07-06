@@ -1,13 +1,18 @@
 from collections import OrderedDict
 import copy, threading, pkgutil, inspect, sys, os, socket
 from multiprocessing import Process, Pipe
-from numpy import inf
-from imp import load_source
+from numpy import inf, hstack, transpose
+import imp, hashlib, time
 
 __all__ = ['load_script','Slik','SlikFunction',
            'SlikDict','SlikPlugin','SlikSampler','param','param_shortcut',
            'SubprocessExtension','get_plugin','get_all_plugins',
-           'lsum','all_kw']
+           'lsum','all_kw','run_chain']
+
+""" Loaded datafiles will reside in this empty module. """
+datafile_module = 'cosmoslik.scripts'
+sys.modules[datafile_module]=imp.new_module(datafile_module)
+
 
 
 def load_script(scriptfile,*args,**kwargs):   
@@ -15,7 +20,11 @@ def load_script(scriptfile,*args,**kwargs):
     Read a CosmoSlik script. 
     Passes *args and **kwargs to the script's __init__.
     """ 
-    return Slik(load_source('_test',scriptfile).main(*args,**kwargs))
+    script_module = hashlib.md5(os.path.abspath(scriptfile) + time.ctime()).hexdigest()
+    modname='%s.%s'%(datafile_module,script_module)
+    mod = imp.load_source(modname,scriptfile)
+    sys.modules[modname]=mod
+    return Slik(mod.main(*args,**kwargs))
 
 
 class Slik(object):
@@ -146,7 +155,46 @@ class sample(object):
         self.x = x
         self.lnl = lnl
         self.extra = extra
-        
+
+
+
+def run_chain(main,nchains=1,pool=None,*args,**kwargs):
+    """
+    Runs a CosmoSlik chain, or if nchains!=1 runs a set of chains in parallel (trivially). 
+
+    Non-trivial parallelization, e.g. using MPI or with communication amongst chains, 
+    is handled by each cosmoslik.Sampler module. See individual documentation. 
+
+
+    Arguments:
+    ----------
+    main - the class object for your top-level SlikPlugin 
+    pool - any worker pool which has a pool.map function. 
+           default: multiprocessing.Pool(nchains)
+    nchains - the number of chains to run
+
+    Note: remaining *args and **kwargs are passed to main(*args,**kwargs)
+
+
+    Returns:
+    --------
+    A cosmoslik.chain.Chain instance if nchains=1, 
+    otherwise a cosmoslik.chain.Chains instance
+
+    """
+    from chains import Chain, Chains
+    from multiprocessing.pool import Pool
+
+    if nchains==1:
+        slik = Slik(main(*args,**kwargs))
+        return Chain(dict(zip(hstack(['weight','lnl',slik.get_sampled().keys()]),
+                              transpose([hstack([s.weight,s.lnl,s.x]) for s in slik.sample()]))))
+    else:
+        _pool = pool or Pool(nchains)
+        ans = Chains(_pool.map(run_chain,[main]*nchains))
+        if not pool: _pool.terminate()
+        return ans
+
 
 
 class SlikPlugin(SlikDict):
