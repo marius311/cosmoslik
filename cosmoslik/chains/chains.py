@@ -137,6 +137,13 @@ class Chain(dict):
         if 'color' in kwargs: kwargs['colors']=[kwargs.pop('color')]
         likegrid(self,**kwargs)
 
+    def likegrid1d(self,**kwargs):
+        """
+        Make a grid of 1-d likelihood contours. 
+        See :func:`~cosmoslik.chains.likegrid1d`
+        """
+        likegrid1d(self,**kwargs)
+
     def join(self):
         """Does nothing since already one chain."""
         return self
@@ -168,11 +175,11 @@ def like2d(datx,daty,weights=None,
            ax=None, fig=None,
            **kwargs):
     
-    from matplotlib.pyplot import figure, get_cmap
+    from matplotlib.pyplot import gca, get_cmap
     from matplotlib.mlab import movavg
     from matplotlib.colors import LinearSegmentedColormap
     
-    if ax is None: ax = (figure(0) if fig is None else (figure(fig) if isinstance(fig,int) else fig)).add_subplot(111)
+    if ax is None: ax = gca()
     if weights is None: weights=ones(len(datx))
     if color is None: color = kwargs.pop('c') if 'c' in kwargs else 'b' 
     
@@ -197,9 +204,9 @@ def like1d(dat,weights=None,
            nbins=30,range=None,maxed=True,
            ax=None, fig=None,
            **kw):
-    from matplotlib.pyplot import figure
+    from matplotlib.pyplot import gca
     from matplotlib.mlab import movavg
-    if ax is None: ax = (figure(0) if fig is None else (figure(fig) if isinstance(fig,int) else fig)).add_subplot(111)
+    if ax is None: ax = gca()   
     if weights is None: weights=ones(len(dat))
     H, xe = histogram(dat,bins=nbins,weights=weights,normed=True,range=range)
     if maxed: H=H/max(H)
