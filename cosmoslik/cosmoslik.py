@@ -158,7 +158,7 @@ class sample(object):
 
 
 
-def run_chain(main,nchains=1,pool=None,*args,**kwargs):
+def run_chain(main,nchains=1,pool=None,args=None,kwargs=None):
     """
     Runs a CosmoSlik chain, or if nchains!=1 runs a set of chains in parallel (trivially). 
 
@@ -172,8 +172,8 @@ def run_chain(main,nchains=1,pool=None,*args,**kwargs):
     pool - any worker pool which has a pool.map function. 
            default: multiprocessing.Pool(nchains)
     nchains - the number of chains to run
-
-    Note: remaining *args and **kwargs are passed to main(*args,**kwargs)
+    args - args to pass to main(*args)
+    kwargs - kwargs to pass to main(**kwargs)
 
 
     Returns:
@@ -185,14 +185,19 @@ def run_chain(main,nchains=1,pool=None,*args,**kwargs):
     from chains import Chain, Chains
     from multiprocessing.pool import Pool
 
+    if args is None: args=[]
+    if kwargs is None: kwargs={}
+
     if nchains==1:
         slik = Slik(main(*args,**kwargs))
         return Chain(dict(zip(hstack(['weight','lnl',slik.get_sampled().keys()]),
                               transpose([hstack([s.weight,s.lnl,s.x]) for s in slik.sample()]))))
     else:
         _pool = pool or Pool(nchains)
-        ans = Chains(_pool.map(run_chain,[main]*nchains))
-        if not pool: _pool.terminate()
+        try:
+            ans = Chains(_pool.map(run_chain,[main]*nchains))
+        finally:
+            if not pool: _pool.terminate()
         return ans
 
 
