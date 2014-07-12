@@ -315,7 +315,7 @@ class _SubprocessExtension(object):
             
 def get_plugin(name):
     """
-    Return a CosmoSlikPlugin class for plugin name. 
+    Return a SlikPlugin class for plugin name. 
     name should be module path relative to cosmoslik.plugins
     """
     modname = name.split('.')[-1]
@@ -328,12 +328,12 @@ def get_plugin(name):
 def get_all_plugins():
     """
     Gets all valid CosmoSlik plugins found in the 
-    namespace package cosmoslik.plugins.
+    namespace package cosmoslik_plugins.
     
-    The return value is a list of (name, class, type) for each plugin.
+    The return value is a list of (name, class) for each plugin.
     
     Valid plugins are any module X which has an attribute X which 
-    is a subclass of CosmoSlikPlugin. If multiple references to
+    is a subclass of SlikPlugin. If multiple references to
     X exist in the package, only the shallowest one is returned.  
     """
     import cosmoslik_plugins
@@ -344,17 +344,12 @@ def get_all_plugins():
             mod = __import__(fullname,fromlist=modname)
             cls = mod.__getattribute__(modname)
             mro = inspect.getmro(cls)
-            if CosmoSlikPlugin in mro and len(plugins.get(cls,(fullname,))[0])>=len(fullname): 
-                for t in [Likelihood, Model, Sampler, Deriver]: 
-                    if t in mro: 
-                        typ = t.__name__
-                        break
-                else: continue
-                plugins[cls] = (fullname,typ)
+            if SlikPlugin in mro and len(plugins.get(cls,(fullname,))[0])>=len(fullname): 
+                plugins[cls] = fullname
         except Exception:
             pass
         
-    plugins = sorted([(fullname,cls,typ) for cls, (fullname, typ) in plugins.items()])
+    plugins = sorted([(fullname,cls) for cls,fullname in plugins.items()])
     return plugins
 
 

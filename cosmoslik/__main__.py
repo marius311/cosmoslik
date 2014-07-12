@@ -14,7 +14,7 @@ def main(args):
 
     if args['list']:
         print "Found the following modules in 'cosmoslik_plugins':"
-        for (name,_,typ) in K.get_all_plugins():
+        for (name,_) in K.get_all_plugins():
             print '  %s'%'.'.join(name.split('.')[1:])
         print "See 'cosmoslik.py --doc <module>' for more information on a given module."
         
