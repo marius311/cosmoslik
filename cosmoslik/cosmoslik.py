@@ -7,7 +7,7 @@ import imp, hashlib, time
 __all__ = ['load_script','Slik','SlikFunction',
            'SlikDict','SlikPlugin','SlikSampler','param','param_shortcut',
            'SubprocessExtension','get_plugin','get_all_plugins',
-           'lsum','all_kw','run_chain']
+           'lsum','all_kw','run_chain','SlikMain']
 
 """ Loaded datafiles will reside in this empty module. """
 datafile_module = 'cosmoslik.scripts'
@@ -24,31 +24,27 @@ def load_script(scriptfile,*args,**kwargs):
     modname='%s.%s'%(datafile_module,script_module)
     mod = imp.load_source(modname,scriptfile)
     sys.modules[modname]=mod
-    return Slik(mod.main(*args,**kwargs))
+    
+    plugins = [v for k,v in vars(mod).items() if (isinstance(v,type) and 
+                                                  issubclass(v,SlikPlugin) and 
+                                                  v!=SlikPlugin)]
+    mains = [v for v in plugins if hasattr(v,'_slik_main')]
+    
+    if len(mains)>=2: raise ValueError("Multiple SlikPlugins in '%s' are marked with @SlikMain. CosmoSlike doesn't know which one to run."%scriptfile)
+    elif len(mains)==1: main=mains[0]
+    elif len(plugins)>=2: raise ValueError("Multiple SlikPlugins were found in '%s' but none are marked with @SlikMain. CosmoSlik doesn't know which one to run."%scriptfile)
+    elif len(plugins)==1: main=plugins[0]
+    else: raise ValueError("No SlikPlugins were found in '%s'"%scriptfile)
+    
+    return Slik(main(*args,**kwargs))
+
 
 
 class Slik(object):
     
     def __init__(self,params):
         self.params = params
-        
-#        def add_slik_functions(slikdict):
-#            for k in dir(slikdict): 
-#                v=getattr(slikdict,k)
-#                if isinstance(v,SlikDict): add_slik_functions(v)
-#                elif hasattr(v,'_slik_function'): 
-#                    def _make_slik_function(v):
-#                        def _slik_function(*args,**kwargs):
-#                            return v(self,*args,**kwargs)
-#                        _slik_function.__doc__ = v.__doc__
-#                        return _slik_function
-#                    setattr(self,k,_make_slik_function(v))
-#        
-#        add_slik_functions(self.params)
-        
-        
         self._sampled = params.find_sampled()
-        
         self.sampler = self.params.sampler
         del self.params.sampler
         
@@ -92,6 +88,13 @@ class Slik(object):
     
 
 
+def SlikMain(cls):
+    """
+    Mark this plugin as being the main plugin to run in a CosmoSlik script. 
+    """
+    if not issubclass(cls,SlikPlugin): raise ValueError("SlikMain used on a class which is not a SlikPlugin.")
+    cls._slik_main = True
+    return cls
         
         
 def SlikFunction(func):
