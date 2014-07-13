@@ -224,7 +224,7 @@ class SlikSampler(SlikDict):
         raise NotImplementedError()
     
     
-no_subproc = True
+no_subproc = False
     
 def SubprocessExtension(module_name,globals):
     """
@@ -330,7 +330,7 @@ def get_all_plugins():
     Gets all valid CosmoSlik plugins found in the 
     namespace package cosmoslik_plugins.
     
-    The return value is a list of (name, class) for each plugin.
+    The return value is a dictionary of {class:name} for each plugin.
     
     Valid plugins are any module X which has an attribute X which 
     is a subclass of SlikPlugin. If multiple references to
@@ -349,7 +349,6 @@ def get_all_plugins():
         except Exception:
             pass
         
-    plugins = sorted([(fullname,cls) for cls,fullname in plugins.items()])
     return plugins
 
 
