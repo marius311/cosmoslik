@@ -7,7 +7,7 @@ import imp, hashlib, time
 __all__ = ['load_script','Slik','SlikFunction',
            'SlikDict','SlikPlugin','SlikSampler','param','param_shortcut',
            'SubprocessExtension','get_plugin','get_all_plugins',
-           'lsum','all_kw','run_chain']
+           'lsum','all_kw','run_chain','SlikMain']
 
 """ Loaded datafiles will reside in this empty module. """
 datafile_module = 'cosmoslik.scripts'
@@ -24,31 +24,27 @@ def load_script(scriptfile,*args,**kwargs):
     modname='%s.%s'%(datafile_module,script_module)
     mod = imp.load_source(modname,scriptfile)
     sys.modules[modname]=mod
-    return Slik(mod.main(*args,**kwargs))
+    
+    plugins = [v for k,v in vars(mod).items() if (isinstance(v,type) and 
+                                                  issubclass(v,SlikPlugin) and 
+                                                  v!=SlikPlugin)]
+    mains = [v for v in plugins if hasattr(v,'_slik_main')]
+    
+    if len(mains)>=2: raise ValueError("Multiple SlikPlugins in '%s' are marked with @SlikMain. CosmoSlike doesn't know which one to run."%scriptfile)
+    elif len(mains)==1: main=mains[0]
+    elif len(plugins)>=2: raise ValueError("Multiple SlikPlugins were found in '%s' but none are marked with @SlikMain. CosmoSlik doesn't know which one to run."%scriptfile)
+    elif len(plugins)==1: main=plugins[0]
+    else: raise ValueError("No SlikPlugins were found in '%s'"%scriptfile)
+    
+    return Slik(main(*args,**kwargs))
+
 
 
 class Slik(object):
     
     def __init__(self,params):
         self.params = params
-        
-#        def add_slik_functions(slikdict):
-#            for k in dir(slikdict): 
-#                v=getattr(slikdict,k)
-#                if isinstance(v,SlikDict): add_slik_functions(v)
-#                elif hasattr(v,'_slik_function'): 
-#                    def _make_slik_function(v):
-#                        def _slik_function(*args,**kwargs):
-#                            return v(self,*args,**kwargs)
-#                        _slik_function.__doc__ = v.__doc__
-#                        return _slik_function
-#                    setattr(self,k,_make_slik_function(v))
-#        
-#        add_slik_functions(self.params)
-        
-        
         self._sampled = params.find_sampled()
-        
         self.sampler = self.params.sampler
         del self.params.sampler
         
@@ -92,6 +88,13 @@ class Slik(object):
     
 
 
+def SlikMain(cls):
+    """
+    Mark this plugin as being the main plugin to run in a CosmoSlik script. 
+    """
+    if not issubclass(cls,SlikPlugin): raise ValueError("SlikMain used on a class which is not a SlikPlugin.")
+    cls._slik_main = True
+    return cls
         
         
 def SlikFunction(func):
@@ -226,7 +229,7 @@ class SlikSampler(SlikDict):
         raise NotImplementedError()
     
     
-no_subproc = True
+no_subproc = False
     
 def SubprocessExtension(module_name,globals):
     """
@@ -317,7 +320,7 @@ class _SubprocessExtension(object):
             
 def get_plugin(name):
     """
-    Return a CosmoSlikPlugin class for plugin name. 
+    Return a SlikPlugin class for plugin name. 
     name should be module path relative to cosmoslik.plugins
     """
     modname = name.split('.')[-1]
@@ -330,12 +333,12 @@ def get_plugin(name):
 def get_all_plugins():
     """
     Gets all valid CosmoSlik plugins found in the 
-    namespace package cosmoslik.plugins.
+    namespace package cosmoslik_plugins.
     
-    The return value is a list of (name, class, type) for each plugin.
+    The return value is a dictionary of {class:name} for each plugin.
     
     Valid plugins are any module X which has an attribute X which 
-    is a subclass of CosmoSlikPlugin. If multiple references to
+    is a subclass of SlikPlugin. If multiple references to
     X exist in the package, only the shallowest one is returned.  
     """
     import cosmoslik_plugins
@@ -346,17 +349,11 @@ def get_all_plugins():
             mod = __import__(fullname,fromlist=modname)
             cls = mod.__getattribute__(modname)
             mro = inspect.getmro(cls)
-            if CosmoSlikPlugin in mro and len(plugins.get(cls,(fullname,))[0])>=len(fullname): 
-                for t in [Likelihood, Model, Sampler, Deriver]: 
-                    if t in mro: 
-                        typ = t.__name__
-                        break
-                else: continue
-                plugins[cls] = (fullname,typ)
+            if SlikPlugin in mro and len(plugins.get(cls,(fullname,))[0])>=len(fullname): 
+                plugins[cls] = fullname
         except Exception:
             pass
         
-    plugins = sorted([(fullname,cls,typ) for cls, (fullname, typ) in plugins.items()])
     return plugins
 
 

@@ -45,7 +45,12 @@ class Chain(dict):
     def sample(self,s,keys=None): 
         """Return a sample or a range of samples depending on if s is an integer or a slice object."""
         return Chain((k,self[k][s]) for k in (keys if keys else self.keys()))
-    
+
+    def iterrows(self):
+        """Iterate over the samples in this chain."""
+        for i in range(self.length()):
+            yield {k:v[i] for k,v in self.items()}
+
     def matrix(self,params=None):
         """Return this chain as an nsamp * nparams matrix."""
         if params is None: params=self.params()
@@ -141,6 +146,14 @@ class Chain(dict):
         if 'color' in kwargs: kwargs['colors']=[kwargs.pop('color')]
         likegrid(self,**kwargs)
 
+    def likepoints(self,*args,**kwargs):
+        """
+        Plots samples from the chain as colored points.
+        See :func:`~cosmoslik.chains.likepoints`
+        """
+
+        return likepoints(self,*args,**kwargs)
+
     def likegrid1d(self,**kwargs):
         """
         Make a grid of 1-d likelihood contours. 
@@ -172,7 +185,37 @@ class Chains(list):
         for c in self: c.plot(param,fig=fig,**kwargs)
 
     
+
+def likepoints(chain,p1,p2,pcolor,
+               npoints=1000,cmap=None,nsig=3,marker='.',markersize=10,
+               ax=None,zorder=-1,cbar=True,cax=None):
+    """
+    Plot p1 vs. p2 as points colored by the value of pcolor.
     
+    Args:
+        p1,p2,pcolor : parameter names
+        npoints : first thins the chain so this number of points are plotted
+        cmap : a colormap (default: jet)
+        nsig : map the range of the color map to +/- nsig
+        ax : axes to use for plotting (default: current axes)
+        cbar : whether to draw a colorbar
+        cax : axes to use for colorbar (default: steal from ax)
+        marker, markersize, zorder : passed to the plot() command
+    """
+    from matplotlib.pyplot import get_cmap, cm, gca, colorbar
+    from matplotlib import colors, colorbar
+    if cmap is None: cmap=get_cmap('jet')
+    if ax is None: ax=gca()
+    mu,sig = chain.mean(pcolor), chain.std(pcolor)
+    for s in chain.thin(int(sum(chain['weight'])/float(npoints))).iterrows():
+        ax.plot(s[p1],s[p2],color=cmap((s[pcolor]-mu)/(2*nsig*sig) + 0.5),marker=marker,markersize=markersize,zorder=-1)
+        
+    if cax is None: cax = colorbar.make_axes(ax)[0]
+    cb = colorbar.ColorbarBase(ax=cax,  norm=colors.Normalize(vmin=mu-nsig*sig, vmax=mu+nsig*sig))
+        
+    return ax,cax
+
+
 def like2d(datx,daty,weights=None,
            nbins=15,which=[.68,.95],
            filled=True, color=None, cmap=None,
