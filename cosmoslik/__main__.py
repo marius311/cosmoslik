@@ -17,6 +17,7 @@ def main(args):
         for name in sorted(K.get_all_plugins().values()):
             print '  %s'%'.'.join(name.split('.')[1:])
         print "See 'cosmoslik.py --doc <module>' for more information on a given module."
+        print "Some modules may need to be compiled before appearing in this list."
         
     elif args['doc'] or args['html_doc']:
         from textwrap import dedent
