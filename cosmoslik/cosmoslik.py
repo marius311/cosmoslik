@@ -187,6 +187,8 @@ def run_chain(main,nchains=1,pool=None,args=None,kwargs=None):
 
     if args is None: args=[]
     if kwargs is None: kwargs={}
+    if isinstance(main,tuple): 
+        main,args,kwargs = main
 
     if nchains==1:
         slik = Slik(main(*args,**kwargs))
@@ -195,7 +197,7 @@ def run_chain(main,nchains=1,pool=None,args=None,kwargs=None):
     else:
         _pool = pool or Pool(nchains)
         try:
-            ans = Chains(_pool.map(run_chain,[main]*nchains))
+            ans = Chains(_pool.map(run_chain,[(main,args,kwargs)]*nchains))
         finally:
             if not pool: _pool.terminate()
         return ans
