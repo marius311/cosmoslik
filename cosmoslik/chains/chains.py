@@ -63,6 +63,10 @@ class Chain(dict):
         """Returns the covariance of the parameters (or some subset of them) in this chain."""
         return get_covariance(self.matrix(params), self["weight"])
     
+    def corr(self,params=None):
+        """Returns the correlation matrix of the parameters (or some subset of them) in this chain."""
+        return get_correlation(self.matrix(params), self["weight"])
+
     def mean(self,params=None): 
         """Returns the mean of the parameters (or some subset of them) in this chain."""
         return average(self.matrix(params),axis=0,weights=self["weight"])
@@ -259,6 +263,15 @@ def like1d(dat,weights=None,
     if maxed: H=H/max(H)
     xem=movavg(xe,2)
     ax.plot(xem,H,**kw)
+
+def get_correlation(data,weights=None):
+    cv = get_covariance(data,weights)
+    n,n = cv.shape
+    for i in range(n): 
+        std=sqrt(cv[i,i])
+        cv[i,:]/=std
+        cv[:,i]/=std
+    return cv
 
 def get_covariance(data,weights=None):
     if (weights==None): return cov(data.T)
