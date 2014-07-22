@@ -1,7 +1,8 @@
+from __future__ import absolute_import
 from cosmoslik import SlikPlugin
 from numpy import hstack, zeros, arange, pi, inf, nan
 
-class clik_like(SlikPlugin):
+class clik(SlikPlugin):
     """
     
     """
@@ -11,7 +12,7 @@ class clik_like(SlikPlugin):
                  **nuisance):
         
         super(clik_like,self).__init__(**nuisance)
-        
+
         import clik
         self.clik = clik.clik(clik_file)            
         
