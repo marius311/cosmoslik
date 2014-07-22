@@ -8,7 +8,7 @@ def options(ctx):
 def configure(ctx):
     ctx.load('compiler_c python')
     ctx.check_python_headers()
-    ctx.check_python_module('scipy','ver >= num(0,12)')
+    ctx.check_python_module('scipy','ver >= num(0,10)')
     ctx.load('cython')
 
 

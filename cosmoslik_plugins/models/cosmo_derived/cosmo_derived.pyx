@@ -22,7 +22,7 @@ cdef double KmPerSOverC = 3.33565e-6
 
 cdef class _cosmo_derived:
 
-    cdef public double ombh2, omch2, omk, mnu, Nnu_massive, Nnu_massless, H0, Yp, Tcmb
+    cdef public double ombh2, omch2, omk, mnu, massive_neutrinos, massless_neutrinos, H0, Yp, Tcmb
     cdef public double ommh2, omvh2, omkh2
     cdef public double Tgamma0, rhogamma0
     cdef public double epsrel
@@ -33,15 +33,15 @@ cdef class _cosmo_derived:
 
     def set_params(self, H0=None, theta_mc=None, 
                    ombh2=None, omch2=None, omk=None, mnu=None,
-                   Nnu_massive=None, Nnu_massless=None, Tcmb=None,
+                   massive_neutrinos=None, massless_neutrinos=None, Tcmb=None,
                    Yp=None, **kwargs):
         """
         Args:
             H0 : hubble constant today in km/s/Mpc
             ombh2, omch2, omk : densities today
             mnu : neutrino mass sum in eV
-            Nnu_massive : number of massive species (mnu divided equally among them)
-            Nnu_massless : number of massless species
+            massive_neutrinos : number of massive species (mnu divided equally among them)
+            massless_neutrinos : number of massless species
             Yp : helium mass fraction
             Tcmb : CMB temperature in Kelvin
             theta_mc : if given, will convert to H0 and set H0 to that
@@ -94,11 +94,11 @@ cdef class _cosmo_derived:
         Returns: energy density in neutrinos + photons in eV^4
         """
         cdef double a, Nphotoneff, rhonu
-        Nphotoneff=1+self.Nnu_massless*7./8*(4./11)**(4./3) #effective number of photon species for massless radiation
+        Nphotoneff=1+self.massless_neutrinos*7./8*(4./11)**(4./3) #effective number of photon species for massless radiation
         a = 1/(1+z)
         if self.mnu==0: rhonu = self.rhogamma0*7./8*(4./11)**(4./3)*a**-4
-        else: rhonu = self.rhoredshift(a,self.mnu/self.Nnu_massive)
-        return Nphotoneff*self.rhogamma0*a**-4 + self.Nnu_massive*rhonu
+        else: rhonu = self.rhoredshift(a,self.mnu/self.massive_neutrinos)
+        return Nphotoneff*self.rhogamma0*a**-4 + self.massive_neutrinos*rhonu
     
     cpdef double Hubble(self, double z):
         """
