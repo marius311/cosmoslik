@@ -87,11 +87,15 @@ cdef class _cosmo_derived:
         cdef double ae=1e-5
         cdef double Te=self.Tgamma0/ae*(4./11)**(1./3) #scale photon temp, then convert to neutrino temp
 
-
         #this intergral is on an inner loop, so we do it using cyquad, which 
         # requires no Python function call overhead and is much faster. 
         return 2/(2*pi**2)*(ae/a)**3*cyquad(<cyquadfunc>rhoredshift_integrand,0,inf,self.epsrel,[a,m,ae,Te],4)
 
+    def theta_s(self, double z):
+        """
+        Returns: the angular size of the sound horizon at redshift z
+        """
+        return self.r_s(z) / self.D_A(z)
 
     def r_s(self, double z):
         """
