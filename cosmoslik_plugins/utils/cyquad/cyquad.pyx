@@ -1,6 +1,5 @@
 #cython: profile=False
 
-import cython
 from libc.math cimport INFINITY as inf
 
 
@@ -22,7 +21,7 @@ cdef dqagie_fn dqagie = (<dqagie_fn*><size_t>ctypes.addressof(qp.dqagie_))[0]
 
 
 
-#keep a call stack to pass *args to the integrand function, since DQAGSE doesn't allow this directly
+#keep a call stack to pass *args to the integrand function
 cdef struct call_sig:
     cyquadfunc func
     double *args
@@ -54,7 +53,6 @@ cdef class call_stack:
 cdef call_stack my_call_stack = call_stack()
 #---- 
 
-@cython.profile(False)
 cdef double quad_func_wrapper(double *x):
     cdef call_sig sig = my_call_stack.peek()
     cdef double *a = sig.args
@@ -89,11 +87,12 @@ cdef double quad_func_wrapper(double *x):
 
 cdef double cyquad(cyquadfunc func, double a, double b, double epsrel, double *args, int nargs):
     """
-    Call SciPy's quad function (DQAGSE) directly from Cython, with no Python function call overhead. 
+    Call SciPy's quad function directly from Cython, with no Python function call overhead. 
     
     Args:
         cyquadfunc func : pointer to the integrand function
         double a,b : limits of integration (can be inf's)
+        double epsrel : relative error desired
         double *args : an array of extra arguments to pass to the integration function (max length: 10)
         int nargs : the length of args
         
@@ -126,6 +125,5 @@ cdef double cyquad(cyquadfunc func, double a, double b, double epsrel, double *a
         dqagie(quad_func_wrapper,&bound,&infbound,&epsabs,&epsrel,&limit,&result,&abserr,&neval,
            &ier,alist,blist,rlist,elist,iord,&last)
     my_call_stack.pop()
-    # print result, (abserr/result)/epsrel, neval, ier, [args[i] for i in range(nargs)], args[1]/args[0]
 
     return result
