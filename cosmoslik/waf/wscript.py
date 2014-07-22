@@ -81,7 +81,7 @@ def configure(conf):
     conf.check_python_module('numpy','ver >= num(1,5)')
 
     for k,v in conf.environ.items():
-        if any(k.startswith(p) for p in ['LIB','LIBPATH','LINKFLAGS']): 
+        if any(k.startswith(p) for p in ['LIB','LIBPATH','LINKFLAGS','CFLAGS','FCFLAGS']): 
             conf.env.append_value(k, to_list(conf.environ[k]))
 
     if conf.options.PLUGIN is not None:
