@@ -7,6 +7,7 @@
 from cosmoslik import SlikPlugin
 from libc.math cimport sqrt, exp, M_PI as pi, sin, sinh, INFINITY as inf, NAN as nan
 from scipy.integrate import quad, romberg, quadrature
+from scipy.optimize import brentq
 from cosmoslik_plugins.utils.cyquad.cyquad cimport cyquad, cyquadfunc
 
 
@@ -16,7 +17,7 @@ cdef double rhoxOverOmegaxh2 = 8.09906e-11 #eV^4
 cdef double G = 1.63995e2  #G in eV^(-4)Mpc^(-2)
 cdef double EightPiGOver3= 8*pi/3*G  #in eV^(-4)Mpc^(-2)
 cdef double KelvinToeV=8.6173324e-5
-cdef double OneHundredKilometersPerSecPerMpcOverSpeedofLightTimesMpc = 3.33565e-4
+cdef double KmPerSOverC = 3.33565e-6
 
 
 cdef class _cosmo_derived:
@@ -26,11 +27,13 @@ cdef class _cosmo_derived:
     cdef public double Tgamma0, rhogamma0
     cdef public double epsrel
 
-    def __init__(self,epsrel=1e-4):
+    def __init__(self,epsrel=1e-4, Tcmb=2.7255):
         self.epsrel = epsrel
+        self.Tcmb = Tcmb
 
-    def set_params(self, H0=None, ombh2=None, omch2=None, omk=None, mnu=None,
-                   Nnu_massive=None, Nnu_massless=None, Tcmb=2.7255,
+    def set_params(self, H0=None, theta_mc=None, 
+                   ombh2=None, omch2=None, omk=None, mnu=None,
+                   Nnu_massive=None, Nnu_massless=None, Tcmb=None,
                    Yp=None, **kwargs):
         """
         Args:
@@ -39,9 +42,12 @@ cdef class _cosmo_derived:
             mnu : neutrino mass sum in eV
             Nnu_massive : number of massive species (mnu divided equally among them)
             Nnu_massless : number of massless species
+            Yp : helium mass fraction
+            Tcmb : CMB temperature in Kelvin
+            theta_mc : if given, will convert to H0 and set H0 to that
         """
         for k,v in locals().items():
-            if hasattr(self,k) and v is not None: 
+            if hasattr(self,k) and v is not None and k!='theta_mc': 
                 setattr(self,k,v)
 
         self.Tgamma0=self.Tcmb*KelvinToeV  
@@ -49,11 +55,38 @@ cdef class _cosmo_derived:
 
         if H0 is None:
             self.omkh2 = self.ommh2 = self.omvh2 = nan
+            if theta_mc is not None:
+                self.theta2hubble(theta_mc,'theta_mc')
         else:
-            h2 = (H0/100)**2
-            self.omkh2 = omk*h2
+            if theta_mc is not None: raise ValueError("Can't set both H0 and theta_mc.")
+            h2 = (H0/100.)**2
+            self.omkh2 = self.omk*h2
             self.ommh2 = self.ombh2 + self.omch2
             self.omvh2 = h2 - self.omkh2 - self.ommh2 - self.rho_gamma_nu(0)/rhoxOverOmegaxh2
+
+
+    def theta2hubble(self, theta, theta_type='theta_mc', epsrel=1e-3):
+        """
+        Solves for H0 (in km/s/Mpc) given theta, and the current values of the other parameters. 
+
+        Args:
+            theta : the value of theta (*not* 100*theta)
+            theta_type : which theta to convert. one of ['theta_mc','theta_s']
+            epsrel : relative error on the solution. the returned value and self.Hubble(0) will agree
+                to within this tolerance
+
+        Returns : H0 (and sets the current value of H0 to the solution)
+        """
+
+        theta_func = {'theta_mc':self.theta_mc}[theta_type]#, 'theta_s':self.theta_s}
+
+        def f(double H0):
+            self.set_params(H0=H0)
+            return theta_func() - theta
+
+        H0 = brentq(f,10,200,rtol=epsrel or self.epsrel)
+        self.set_params(H0=H0)
+        return H0
 
 
     cdef double rho_gamma_nu(self, double z):
@@ -69,9 +102,9 @@ cdef class _cosmo_derived:
     
     cpdef double Hubble(self, double z):
         """
-        Returns : hubble rate at redshift z in 1/Mpc
+        Returns : hubble rate at redshift z in km/s/Mpc
         """
-        return sqrt(EightPiGOver3*(rhoxOverOmegaxh2*(self.ommh2*(1+z)**3 + self.omkh2*(1+z)**2 + self.omvh2) + self.rho_gamma_nu(z)))
+        return sqrt(EightPiGOver3*(rhoxOverOmegaxh2*(self.ommh2*(1+z)**3 + self.omkh2*(1+z)**2 + self.omvh2) + self.rho_gamma_nu(z)))/KmPerSOverC
 
 
     cdef double rhoredshift(self, double a, double m):
@@ -87,22 +120,22 @@ cdef class _cosmo_derived:
         cdef double ae=1e-5
         cdef double Te=self.Tgamma0/ae*(4./11)**(1./3) #scale photon temp, then convert to neutrino temp
 
-        #this intergral is on an inner loop, so we do it using cyquad, which 
+        # this intergral is on an inner loop, so we do it using cyquad, which 
         # requires no Python function call overhead and is much faster. 
         return 2/(2*pi**2)*(ae/a)**3*cyquad(<cyquadfunc>rhoredshift_integrand,0,inf,self.epsrel,[a,m,ae,Te],4)
 
     def theta_s(self, double z):
         """
-        Returns: the angular size of the sound horizon at redshift z
+        Returns : the angular size of the sound horizon at redshift z
         """
         return self.r_s(z) / self.D_A(z)
 
     def r_s(self, double z):
         """
-        Returns: comoving sound horizon scale at redshift z in Mpc.
+        Returns : comoving sound horizon scale at redshift z in Mpc.
         """
         cdef double Rovera=3*self.ombh2*rhoxOverOmegaxh2/(4*self.rhogamma0)
-        return quad(lambda double zp: 1/self.Hubble(zp) / sqrt(3*(1+Rovera/(1+zp))),z,inf,epsabs=0,epsrel=self.epsrel)[0]
+        return quad(lambda double zp: 1/self.Hubble(zp) / sqrt(3*(1+Rovera/(1+zp))),z,inf,epsabs=0,epsrel=self.epsrel)[0] / KmPerSOverC
 
     
     cpdef double D_A(self, double z):
@@ -110,7 +143,7 @@ cdef class _cosmo_derived:
         Returns : comoving angular-diameter distance to redshift z in Mpc.
         """
         cdef double K, dist
-        K=-self.omkh2*(OneHundredKilometersPerSecPerMpcOverSpeedofLightTimesMpc)**2
+        K=-self.omkh2*(100*KmPerSOverC)**2
         dist = self.D_prop(z)
         if K<0: return 1/sqrt(-K)*sin(dist*sqrt(-K))
         elif K > 0: return 1/sqrt(K)*sinh(dist*sqrt(K))
@@ -121,13 +154,25 @@ cdef class _cosmo_derived:
         """
         Returns : proper comoving distance to redshift z in Mpc.
         """
-        return quad(lambda double zp: 1/self.Hubble(zp),0,z,epsabs=0,epsrel=self.epsrel)[0]
+        return quad(lambda double zp: 1/self.Hubble(zp),0,z,epsabs=0,epsrel=self.epsrel)[0] / KmPerSOverC
 
     
     cpdef double Dv(self, double z):
         return (self.D_A(z)**2*z/self.Hubble(z))**(1./3)
 
 
+    cpdef double zstar_HS(self):
+        """
+        Returns : redshift at decoupling fitting formula from Hu & Sugiyama 
+        """
+        return 1048*(1+0.00124*self.ombh2**(-0.738))*(1+(0.0783*self.ombh2**(-0.238)/(1+39.5*self.ombh2**0.763))*self.ommh2**(0.560/(1+21.1*self.ombh2**1.81)))
+
+
+    cpdef double theta_mc(self):
+        """
+        Returns : theta_s at the decoupling redshift calculated from zstar_HS
+        """
+        return self.theta_s(self.zstar_HS())
 
 
 
@@ -138,6 +183,7 @@ cdef double rhoredshift_integrand(double x, double a, double m, double ae, doubl
     return (x*x)*sqrt((x*x)*(ae/a)*(ae/a)+(m*m))/(exp(sqrt((x*x)+(m*m))/Te)+1)
 
     
+
 class cosmo_derived(SlikPlugin):
     
     def __init__(self,epsrel=1e-4):
