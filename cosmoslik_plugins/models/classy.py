@@ -5,6 +5,9 @@ from numpy import arange, pi
 
 class classy(SlikPlugin):
     """
+    Plugin for CLASS.
+
+    Credit: Brent Follin, Teresa Hamill
     """
 
     #{cosmoslik name : class name}
