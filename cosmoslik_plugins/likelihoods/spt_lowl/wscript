@@ -20,7 +20,7 @@ def configure(conf):
 def build(bld):
     for prefix, bandpower_tgz, bandpower_files in [(k11_prefix,k11_bandpower_tgz,k11_bandpower_files),
                                                    (s12_prefix,s12_bandpower_tgz,s12_bandpower_files)]:
-        bld(rule='${TAR} zxf ${SRC} -C '+bld.path.get_bld().make_node(prefix).abspath(),
+        bld(rule='mkdir -p %s && ${TAR} zxf ${SRC} -C %s'%((bld.path.get_bld().make_node(prefix).abspath(),)*2),
             source=osp.join(prefix,bandpower_tgz),
             target=[osp.join(prefix,f) for f in bandpower_files])
 
