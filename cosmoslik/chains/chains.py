@@ -14,13 +14,16 @@ Contains utilities to:
 
 import os, sys, re
 from numpy import *
+from numpy.linalg import inv
 from itertools import takewhile
 from collections import defaultdict
 import cPickle
+from functools import partial
+from multiprocessing.pool import Pool
 
 
 __all__ = ['Chain','Chains',
-           'like1d','like2d','likegrid','likegrid1d',
+           'like1d','like2d','likegrid','likegrid1d','likepoints',
            'get_covariance', 'load_chain']
 
 
@@ -54,7 +57,7 @@ class Chain(dict):
     def matrix(self,params=None):
         """Return this chain as an nsamp * nparams matrix."""
         if params is None: params=self.params()
-        if is_iter(params) and not  isinstance(params,str):
+        if is_iter(params) and not isinstance(params,str):
             return vstack([self[p] for p in (params if params else self.params())]).T
         else:
             return self[params]
@@ -86,7 +89,98 @@ class Chain(dict):
     def burnin(self,n):
         """Remove the first n non-unique samples from the beginning of the chain."""
         return self.sample(slice(sum(1 for _ in takewhile(lambda x: x<n, cumsum(self['weight']))),None))
+
+    def postprocd(self,func,nthreads=1,pool=None):
+        """
+        Post-process some values into this chain. 
+                
+        Args:
+            func : a function which accepts all the keys in the chain
+                and returns a dictionary of new keys to add. `func` must accept *all* 
+                keys in the chain, if there are ones you don't need, capture them 
+                with **_ in its call signature, e.g. to add in a parameter 'b'
+                which is 'a' squared, use postprocd(lambda a,**_: {'b':a**2})
+            nthreads : the number of threads to use
+            pool : any worker pool which has a pool.map function. 
+               default: multiprocessing.Pool(nthreads)
+               
+        Returns:
+            A new chain, without altering the original chain
+            
+        Note:
+            This repeatedly calls `func` on rows in the chain, so its very inneficient 
+            compared to a vectorized version of your post-processing function. `postprocd` is mostly 
+            useful for slow post-processing functions, allowing you to conveniently 
+            use the `nthreads` option to this function. 
+            
+            For the default implementation of `pool`, `func` must be picklable, 
+            meaning it must be a module-level function. 
+        """
+
+        if pool is not None: _pool = pool
+        elif nthreads!=1: _pool = Pool(nthreads)
+        else: _pool = None
+
+        mp=map if _pool is None else _pool.map
+
+        try:
+            dat = mp(partial(_postprocd_helper,func),self.iterrows())
+        finally:
+            if pool is None and _pool is not None: _pool.terminate()
+
+        c=self.copy()
+        c.update({k:array([d[k] for d in dat]) for k in dat[0].keys()})
+        return c
+
+    def reweighted(self,func,nthreads=1,pool=None):
+        """
+        Args:
+            func : a function which accepts all keys in the chain, and returns 
+                a new weight for the step. `func` must accept *all* 
+                keys, if there are ones you don't need, capture them 
+                with **_ in its call signature, e.g. to add unit gaussian prior 
+                on parameter 'a' use reweighted(lambda a,**_: exp(-a**2/2)
+            nthreads : the number of threads to use
+            pool : any worker pool which has a pool.map function. 
+               default: multiprocessing.Pool(nthreads)
+               
+        Returns:
+            A new chain, without altering the original chain
+            
+        Note:
+            This repeatedly calls `func` on rows in the chain, so its very inneficient 
+            compared to a vectorized version of your post-processing function. `postprocd` is mostly 
+            useful for slow post-processing functions, allowing you to conveniently 
+            use the `nthreads` option to this function. 
+            
+            For the default implementation of `pool`, `func` must be picklable, 
+            meaning it must be a module-level function. 
+        """
+        return self.postprocd(partial(_reweighted_helper,func),nthreads=nthreads,pool=pool)
     
+    
+    def add_gauss_prior(self, params, mean, covstd, nthreads=1, pool=None):
+        """
+        Post-process a gaussian prior into the chain.
+        
+        Args:
+            params - a parameter name, or a list of parameters
+            mean - the mean (should be a list is params was a list)
+            covstd - if params was a list, this should be a 2-d array holding the covariance
+                if params was a single parameter, this should be the standard devation
+                
+        Returns:
+            A new chain, without altering the original chain
+        """
+
+        c=self.copy()   
+        dx = self.matrix(params) - mean
+        if is_iter(params) and not isinstance(params,str):
+            c['weight'] *= exp(-sum(dot(dx,inv(covstd))*dx,axis=1)/2)
+        else:
+            c['weight'] *= exp(-dx**2/2/covstd**2)
+        return c
+
     def best_fit(self):
         """Get the best fit sample."""
         return {k:v[0] for k,v in self.sample(self['lnl'].argmin()).items()}
@@ -170,7 +264,6 @@ class Chain(dict):
         return self
 
         
-        
 class Chains(list):
     """A list of chains, e.g. from a run of several parallel chains"""
     
@@ -188,8 +281,13 @@ class Chains(list):
         if fig is None: fig=figure()
         for c in self: c.plot(param,fig=fig,**kwargs)
 
-    
 
+def _postprocd_helper(func,kwargs):
+    return func(**kwargs)
+    
+def _reweighted_helper(func,weight,**kwargs):
+    return {'weight': weight * func(weight=weight,**kwargs)}
+        
 def likepoints(chain,p1,p2,pcolor,
                npoints=1000,cmap=None,nsig=3,marker='.',markersize=10,
                ax=None,zorder=-1,cbar=True,cax=None):
@@ -206,7 +304,7 @@ def likepoints(chain,p1,p2,pcolor,
         cax : axes to use for colorbar (default: steal from ax)
         marker, markersize, zorder : passed to the plot() command
     """
-    from matplotlib.pyplot import get_cmap, cm, gca, colorbar
+    from matplotlib.pyplot import get_cmap, cm, gca, sca, colorbar
     from matplotlib import colors, colorbar
     if cmap is None: cmap=get_cmap('jet')
     if ax is None: ax=gca()
@@ -216,14 +314,15 @@ def likepoints(chain,p1,p2,pcolor,
         
     if cax is None: cax = colorbar.make_axes(ax)[0]
     cb = colorbar.ColorbarBase(ax=cax,  norm=colors.Normalize(vmin=mu-nsig*sig, vmax=mu+nsig*sig))
-        
+    
+    sca(ax)
     return ax,cax
 
 
 def like2d(datx,daty,weights=None,
            nbins=15,which=[.68,.95],
            filled=True, color=None, cmap=None,
-           ax=None, fig=None,
+           ax=None,
            **kwargs):
     
     from matplotlib.pyplot import gca, get_cmap
@@ -253,7 +352,7 @@ def like2d(datx,daty,weights=None,
     
 def like1d(dat,weights=None,
            nbins=30,range=None,maxed=True,
-           ax=None, fig=None,
+           ax=None,
            **kw):
     from matplotlib.pyplot import gca
     from matplotlib.mlab import movavg
@@ -405,7 +504,7 @@ def likegrid1d(chains, params='all',
              legend_loc=None,
              linewidth=1,
              param_name_mapping=None,
-             param_label_size=18,
+             param_label_size=None,
              tick_label_size=None,
              ncol = 4):
     """
@@ -495,7 +594,7 @@ def likegrid1d(chains, params='all',
         ax.set_yticks([])
         ax.set_xlim(lims[p1])
         ax.set_ylim(0,1)
-        ax.set_title(param_name_mapping.get(p1,r'$\rm%s$'%p1),size=param_label_size)
+        ax.set_title(param_name_mapping.get(p1,p1),size=param_label_size)
 
    
     if labels is not None:
