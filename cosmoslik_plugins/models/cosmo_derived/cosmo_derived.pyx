@@ -67,7 +67,7 @@ cdef class _cosmo_derived:
 
     def theta2hubble(self, theta, theta_type='theta_mc', epsrel=1e-3):
         """
-        Solves for H0 (in km/s/Mpc) given theta, and the current values of the other parameters. 
+        Solves for H0 (in km/s/Mpc) given theta, and taking the current values of the other parameters. 
 
         Args:
             theta : the value of theta (*not* 100*theta)
