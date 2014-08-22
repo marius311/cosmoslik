@@ -186,7 +186,8 @@ class Chains(list):
         """Plot the value of a parameter as a function of sample number for each chain."""
         from matplotlib.pyplot import figure
         if fig is None: fig=figure()
-        for c in self: c.plot(param,fig=fig,**kwargs)
+        for c in self: 
+            if c: c.plot(param,fig=fig,**kwargs)
 
     
 
@@ -405,7 +406,7 @@ def likegrid1d(chains, params='all',
              legend_loc=None,
              linewidth=1,
              param_name_mapping=None,
-             param_label_size=18,
+             param_label_size=None,
              tick_label_size=None,
              ncol = 4):
     """
@@ -495,7 +496,7 @@ def likegrid1d(chains, params='all',
         ax.set_yticks([])
         ax.set_xlim(lims[p1])
         ax.set_ylim(0,1)
-        ax.set_title(param_name_mapping.get(p1,r'$\rm%s$'%p1),size=param_label_size)
+        ax.set_title(param_name_mapping.get(p1,p1),size=param_label_size)
 
    
     if labels is not None:
