@@ -134,6 +134,8 @@ class Chain(dict):
 
     def reweighted(self,func,nthreads=1,pool=None):
         """
+        Reweight this chain.
+
         Args:
             func : a function which accepts all keys in the chain, and returns 
                 a new weight for the step. `func` must accept *all* 
