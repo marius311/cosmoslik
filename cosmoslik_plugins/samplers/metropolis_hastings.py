@@ -1,4 +1,4 @@
-from numpy import log, mean, array, sqrt, diag, genfromtxt, sum, dot, cov, inf, loadtxt, diag, nan
+from numpy import log, mean, array, sqrt, diag, genfromtxt, sum, dot, cov, inf, loadtxt, diag, nan, hstack
 from numpy.random import multivariate_normal, uniform, seed
 import cosmoslik.mpi as mpi
 import re, time
@@ -10,7 +10,7 @@ from cosmoslik import SlikSampler, SlikFunction, param, all_kw
 from cosmoslik.chains.chains import Chain, Chains
 from cosmoslik.cosmoslik import sample
 import multiprocessing
-    
+import struct
     
     
 class mcmc_sample(sample):
@@ -21,6 +21,23 @@ class mcmc_sample(sample):
 
 @SlikFunction
 def load_chain(output_file):
+    """
+    Load a chain produced by metropolis_hastings2
+    """
+    c = cPickle.load(open(output_file,'rb'))
+    if isinstance(c,Chains): return c
+    else: 
+        try:
+            with open(output_file,'rb') as f:
+                params, derived = cPickle.load(f)
+                names = ['lnl','weight']+params+derived
+                return Chains([Chain(zip(names,array([hstack([s.lnl,s.weight,s.x,s.extra]) for s in sample]).T)) for sample in cPickle.load(f)])
+        except:
+            return _load_chain_old(output_file)
+
+
+@SlikFunction
+def _load_chain_old(output_file):
     """
     Load a chain produced by metropolis_hastings2
     """
@@ -47,63 +64,41 @@ def load_chain(output_file):
 class metropolis_hastings(SlikSampler):
     """
     
-    ===================
-    Metropolis-Hastings
-    ===================
+    An adaptive metropolis hastings sampler. 
+    
+    To run with MPI, call your script with:
+
+        mpiexec -n <nchains+1> python -m cosmoslik script.py
+    
+    (Note one process is a "master," so run one more process than you want chains)
     
     
-    Usage
-    =====
-    
-    To use this module set ``samplers = metropolis_hastings`` 
-    
-    
-    Running with MPI
-    ================
-    
-    This sampler can be run with MPI. For example to run 8 parallel chains use::
-    
-        python -m cosmoslik -n 8 params.ini
-    
-    or::
-    
-        mpiexec -n 9 python -m cosmoslik params.ini
-    
-    (When running ``mpiexec`` by hand, one process is a "master," so run one extra process.)
-    
-    
-    
-    Parameters
-    ==========
-    
-    include sampler ones...
-    
-    proposal_matrix
-    ---------------
-        Path to a file which holds the proposal covariance. The format
-        is a standard ascii matrix, with the first line being 
-        a comment with space-separated variable names. (See e.g. savecov). This should
-        be a best estimate of the posterior covariance. The actual proposal covariance is 
-        multiplied by ``proposal_scale**2 / N`` where ``N`` is the number of parameters.
-        (default: diagonal covariance taken from the ``width`` of each parameter)
+    Args:
+        params: The script to which this sampler is attached
+        output_file: File where to save the chain (if running with MPI, everything still
+            gets dumped into one file). The file is a Python pickle of a `Chains` object.
+            Can use `cosmoslik.utils.load_chain` as a convenient way to load chains without
+            having to import cPickle.
+        output_extra_params: Extra parameter names besides the sampled ones which to output to file. 
+        num_samples: The number of total desired samples (including rejected ones) 
+        print_level: 0/1/2 to print little/medium/alot 
+        proposal_cov: Path to a file which holds the proposal covariance. The format
+            is a standard ascii matrix, with the first line being 
+            a comment with space-separated variable names. (See e.g. savecov). This should
+            be a best estimate of the posterior covariance. The actual proposal covariance is 
+            multiplied by `proposal_scale**2 / N` where `N` is the number of parameters.
+            (default: diagonal covariance taken from the `scale` of each parameter)
+        proposal_scale: Scale the proposal matrix. (default: 2.4)
+        proposal_update: Whether to update the proposal matrix. 
+            Ignored if not running with MPI. The proposal is updated by taking 
+            the sample covariance of the last half of each chain. (default: True) 
+        proposal_update_start: If `proposal_update` is True, how many total samples (including rejected) 
+            per chain to wait before starting to do updates (default: 1000). 
+        mpi_comm_freq: Number of accepted samples to wait inbetween the chains
+            communicating with the master process (default: 50).
+        reseed: Draw a random seed based on system time and process number before starting. (default: True) 
+        yield_rejected: Yield samples with 0 weigth (default: False)
         
-    proposal_scale
-    --------------
-        Scale the proposal matrix. (default: ``2.4``)
-        
-    proposal_update
-    ---------------
-        Whether to update the proposal based on the sample covariance of previous steps. 
-        Ignored if not running with MPI. The proposal is updated by taking 
-        the sample covariance of the last half of each chain. (default: ``True``) 
-        
-    proposal_update_start
-    ---------------------
-        If ``proposal_update`` is ``True``, how many non-unique samples per chain to
-        wait before starting to do updates. (default: ``1000``) 
-        
-    
-    
     """
        
     
@@ -117,7 +112,7 @@ class metropolis_hastings(SlikSampler):
                  proposal_scale=2.4,
                  proposal_update=True,
                  proposal_update_start=1000,
-                 mpi_comm_freq=50,
+                 mpi_comm_freq=100,
                  temp=1,
                  reseed=True,
                  yield_rejected=False):
@@ -127,7 +122,6 @@ class metropolis_hastings(SlikSampler):
         super(metropolis_hastings,self).__init__(**all_kw(locals(),['params']))
         
         self.sampled = params.find_sampled()
-        self.chain_metadata = (self.sampled.keys(),self.output_extra_params)
         self.x0 = [params[k].start for k in self.sampled]
         self.proposal_cov = self.initialize_covariance(self.sampled)
 
@@ -168,9 +162,8 @@ class metropolis_hastings(SlikSampler):
         """
         if mpi.is_master() and self.print_level>=1: print 'Starting MCMC chain...'
         if self.output_file is not None:
-            self._output_file = open(self.output_file,"w")
-            cPickle.dump(self.chain_metadata,self._output_file)
-            self._output_file.flush()
+            self._output_file = open(self.output_file,"wb")
+            cPickle.dump((self.sampled.keys(),self.output_extra_params),self._output_file,protocol=2)
         
         return self._mpi_mcmc(self.x0,lnl)
     
@@ -179,7 +172,7 @@ class metropolis_hastings(SlikSampler):
         rank = mpi.get_rank()
         for s in self._mcmc(x0, lnl):
             if self.print_level >= 2: 
-                print 'Chain %i: lnl=%f, weight=%i, params={%s}'%\
+                print '\033[95mChain %i:\033[0m lnl=%.2f, weight=%i, params={%s}'%\
                     (rank,s.lnl, s.weight,
                      ', '.join('%s=%.3g'%i for i in zip(self.sampled.keys(),s.x)))
             yield s
@@ -207,18 +200,20 @@ class metropolis_hastings(SlikSampler):
                 if self.yield_rejected: yield(mcmc_sample(0,test_x,test_lnl,test_extra))
                 cur_weight += 1
                 
-    def _print_chain_stats(self,rank,samples,weights,lnls):
-        acc = len([w for w in weights if w!=0])
-        rej = sum(weights)
-        print 'Chain %i: %i/%i(%.1f%%) best=%.2f last={%s}'%\
+    def _print_chain_stats(self,rank,samples):
+        acc = sum(1 for s in samples if s.weight!=0)
+        tot = sum(s.weight for s in samples)
+        print '\033[1m\033[95mChain %i:\033[0m %i/%i(%.1f%%) best=%.2f last={%s}'%\
             (rank,
              acc,
-             rej,
-             100*float(acc)/rej,
-             min(lnls),
-             ', '.join('%s=%.3g'%i for i in zip(self.sampled.keys(),samples[-1])))
+             tot,
+             100*float(acc)/tot,
+             min(s.lnl for s in samples),
+             ', '.join('%s=%.3g'%i for i in zip(self.sampled.keys(),samples[-1].x)))
 
     def _mpi_mcmc(self,x,lnl):  
+
+        output_start = self._output_file.tell()
     
         (rank,size,comm) = mpi.get_mpi()
         if mpi.get_size()==1:
@@ -238,34 +233,39 @@ class metropolis_hastings(SlikSampler):
                     samples.append(mcmc_sample(s.weight,s.x,s.lnl,extra))
                     
                 if self.output_file is not None:
-                    cPickle.dump((0,[s for s in samples if s.weight>0]),self._output_file,protocol=2)
+                    cPickle.dump([samples],self._output_file,protocol=2)
             
         else:
         
-            from mpi4py import MPI #FIX THIS
+            from mpi4py import MPI
             
             if rank==0:
                 finished = [False]*(size-1)
-                samples, weights, lnls = [[[] for _ in range(size-1)] for __ in range(3)] 
+                samples = [[] for _ in range(size-1)]
                 while (not all(finished)):
-                    while not comm.Iprobe(source=MPI.ANY_SOURCE, tag=0): time.sleep(.1) #Hack so OpenMPI doesn't eat 100% CPU
+                    while not comm.Iprobe(source=MPI.ANY_SOURCE, tag=0): time.sleep(.001) #Hack so OpenMPI doesn't eat 100% CPU
                     (source,new_samples)=comm.recv(source=MPI.ANY_SOURCE)
                     if (new_samples!=None): 
-                        lnls[source-1]+=[s.lnl for s in new_samples]
-                        samples[source-1]+=[s.x for s in new_samples]
-                        weights[source-1]+=[s.weight for s in new_samples]
-                        
-                        if self.proposal_update and sum(weights[source-1])>self.proposal_update_start:
-                            comm.send({"proposal_cov":get_new_cov(samples,weights)},dest=source)
+                        samples[source-1] += new_samples
+
+                        t=time.time()
+                        if self.proposal_update and sum(s.weight for s in samples[source-1])>self.proposal_update_start:
+                            comm.send({"proposal_cov":get_new_cov(samples)},dest=source)
                         else: 
                             comm.send({},dest=source)
+                        covtime = int(1e3*(time.time() - t))
                             
                         if self.print_level>=1: 
-                            self._print_chain_stats(source,samples[source-1], weights[source-1], lnls[source-1])
+                            self._print_chain_stats(source,samples[source-1])
                             
                         if self.output_file is not None:
-                            cPickle.dump((source,[s for s in new_samples if s.weight>0]),self._output_file,protocol=2)
+                            t=time.time()
+                            self._output_file.seek(output_start)
+                            cPickle.dump(samples,self._output_file,protocol=2)
+                            self._output_file.truncate()
                             self._output_file.flush()
+                            dumptime = int(1e3*(time.time() - t))
+                            print '\033[93mWork for %i: propsoal=%ims dump=%ims\033[0m'%(source,covtime,dumptime) 
                     else: 
                         finished[source-1]=True
                         
@@ -276,9 +276,12 @@ class metropolis_hastings(SlikSampler):
                     extra=array([s.extra[k] for k in self.output_extra_params])
                     samples.append(mcmc_sample(s.weight,s.x,s.lnl,extra))
                     if len(samples)==self.mpi_comm_freq:
+                        t = time.time()
                         comm.send((rank,samples),dest=0)
                         self.__dict__.update(comm.recv(source=0))
                         samples = []
+                        print '\033[93mChain %i wasted %ims \033[0m'%(rank,int(1e3*(time.time()-t)))
+                        # print sqrt(diag(self.proposal_cov))
                         
                 comm.send((rank,samples),dest=0)
                 comm.send((rank,None),dest=0)
@@ -293,13 +296,9 @@ def get_covariance(data,weights=None):
         return dot(zdata.T*weights,zdata)/(sum(weights)-1)
 
 
-def get_new_cov(samples,weights=None):
-    """
-    shape(samples) = (nchains,nsamples,nparams)
-    shape(weights) = (nchains,nsamples)
-    """
-    data = array(reduce(lambda a,b: a+b,[s[len(s)/2:] for s in samples]))
-    weights = array(reduce(lambda a,b: a+b,[w[len(w)/2:] for w in weights]))
+def get_new_cov(samples):
+    data    = array(reduce(lambda a,b: a+b,[[s.x      for s in sample[len(samples)/2:]] for sample in samples]))
+    weights = array(reduce(lambda a,b: a+b,[[s.weight for s in sample[len(samples)/2:]] for sample in samples]))
     return get_covariance(data, weights)
     
     

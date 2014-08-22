@@ -281,7 +281,8 @@ class Chains(list):
         """Plot the value of a parameter as a function of sample number for each chain."""
         from matplotlib.pyplot import figure
         if fig is None: fig=figure()
-        for c in self: c.plot(param,fig=fig,**kwargs)
+        for c in self: 
+            if c: c.plot(param,fig=fig,**kwargs)
 
 
 def _postprocd_helper(func,kwargs):
