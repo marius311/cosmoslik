@@ -293,7 +293,7 @@ def _reweighted_helper(func,weight,**kwargs):
         
 def likepoints(chain,p1,p2,pcolor,
                npoints=1000,cmap=None,nsig=3,marker='.',markersize=10,
-               ax=None,zorder=-1,cbar=True,cax=None):
+               ax=None,zorder=-1,cbar=True,cax=None,**kwargs):
     """
     Plot p1 vs. p2 as points colored by the value of pcolor.
     
@@ -305,7 +305,7 @@ def likepoints(chain,p1,p2,pcolor,
         ax : axes to use for plotting (default: current axes)
         cbar : whether to draw a colorbar
         cax : axes to use for colorbar (default: steal from ax)
-        marker, markersize, zorder : passed to the plot() command
+        marker, markersize, zorder, **kwargs : passed to the plot() command
     """
     from matplotlib.pyplot import get_cmap, cm, gca, sca, colorbar
     from matplotlib import colors, colorbar
@@ -313,7 +313,8 @@ def likepoints(chain,p1,p2,pcolor,
     if ax is None: ax=gca()
     mu,sig = chain.mean(pcolor), chain.std(pcolor)
     for s in chain.thin(int(sum(chain['weight'])/float(npoints))).iterrows():
-        ax.plot(s[p1],s[p2],color=cmap((s[pcolor]-mu)/(2*nsig*sig) + 0.5),marker=marker,markersize=markersize,zorder=-1)
+        c=cmap((s[pcolor]-mu)/(2*nsig*sig) + 0.5)
+        ax.plot(s[p1],s[p2],color=c,markeredgecolor=c,marker=marker,markersize=markersize,zorder=-1,**kwargs)
         
     if cax is None: cax = colorbar.make_axes(ax)[0]
     cb = colorbar.ColorbarBase(ax=cax,  norm=colors.Normalize(vmin=mu-nsig*sig, vmax=mu+nsig*sig))
