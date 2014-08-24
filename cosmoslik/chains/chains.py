@@ -292,7 +292,7 @@ def _reweighted_helper(func,weight,**kwargs):
     return {'weight': weight * func(weight=weight,**kwargs)}
         
 def likepoints(chain,p1,p2,pcolor,
-               npoints=1000,cmap=None,nsig=3,marker='.',markersize=10,
+               npoints=1000,cmap=None,nsig=3,clim=None,marker='.',markersize=10,
                ax=None,zorder=-1,cbar=True,cax=None,**kwargs):
     """
     Plot p1 vs. p2 as points colored by the value of pcolor.
@@ -313,11 +313,13 @@ def likepoints(chain,p1,p2,pcolor,
     if ax is None: ax=gca()
     mu,sig = chain.mean(pcolor), chain.std(pcolor)
     for s in chain.thin(int(sum(chain['weight'])/float(npoints))).iterrows():
-        c=cmap((s[pcolor]-mu)/(2*nsig*sig) + 0.5)
+        if clim is None: c=cmap((s[pcolor]-mu)/(2*nsig*sig) + 0.5)
+        else: c = cmap((s[pcolor]-clim[0])/(clim[1]-clim[0]))
         ax.plot(s[p1],s[p2],color=c,markeredgecolor=c,marker=marker,markersize=markersize,zorder=-1,**kwargs)
         
     if cax is None: cax = colorbar.make_axes(ax)[0]
-    cb = colorbar.ColorbarBase(ax=cax,  norm=colors.Normalize(vmin=mu-nsig*sig, vmax=mu+nsig*sig))
+    if clim is None: cb = colorbar.ColorbarBase(ax=cax,  norm=colors.Normalize(vmin=mu-nsig*sig, vmax=mu+nsig*sig))
+    else: cb = colorbar.ColorbarBase(ax=cax,  norm=colors.Normalize(vmin=clim[0], vmax=clim[1]))
     
     sca(ax)
     return ax,cax
