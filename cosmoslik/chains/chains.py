@@ -15,12 +15,12 @@ Contains utilities to:
 import os, sys, re
 from numpy import *
 from numpy.linalg import inv
-from itertools import takewhile
+from itertools import takewhile, chain
 from collections import defaultdict
 import cPickle
 from functools import partial
 from multiprocessing.pool import Pool
-
+from matplotlib.ticker import AutoMinorLocator, ScalarFormatter, MaxNLocator
 
 __all__ = ['Chain','Chains',
            'like1d','like2d','likegrid','likegrid1d','likepoints',
@@ -105,13 +105,16 @@ class Chain(dict):
                default: multiprocessing.Pool(nthreads)
                
         Returns:
-            A new chain, without altering the original chain
+            A new chain with the new values post-processed in.
+            Does not alter the original chain. If for some rows in the
+            chain `func` did not return all the keys, these will be filled
+            in with `nan`. 
             
         Note:
             This repeatedly calls `func` on rows in the chain, so its very inneficient 
-            compared to a vectorized version of your post-processing function. `postprocd` is mostly 
-            useful for slow post-processing functions, allowing you to conveniently 
-            use the `nthreads` option to this function. 
+            if you already have a vectorized version of your post-processing function. 
+            `postprocd` is mostly useful for slow non-vectorized post-processing functions, 
+            allowing convenient use of the `nthreads` option to this function. 
             
             For the default implementation of `pool`, `func` must be picklable, 
             meaning it must be a module-level function. 
@@ -129,7 +132,8 @@ class Chain(dict):
             if pool is None and _pool is not None: _pool.terminate()
 
         c=self.copy()
-        c.update({k:array([d[k] for d in dat]) for k in dat[0].keys()})
+        allkeys = set(chain(*[d.keys() for d in dat]))
+        c.update({k:array([d.get(k,nan) for d in dat]) for k in allkeys})
         return c
 
     def reweighted(self,func,nthreads=1,pool=None):
@@ -497,7 +501,9 @@ from collections import Iterable
 import operator as op
 
 def likegrid1d(chains, params='all',
-             lims=None, ticks=None,
+             lims=None, 
+             ticks=None,
+             nticks=4,
              nsig=3,
              colors=None,
              nbins1d=30,
@@ -510,7 +516,8 @@ def likegrid1d(chains, params='all',
              param_name_mapping=None,
              param_label_size=None,
              tick_label_size=None,
-             ncol = 4):
+             ncol=4,
+             ):
     """
     Make a grid of 1-d likelihood contours.
    
@@ -534,8 +541,11 @@ def likegrid1d(chains, params='all',
         (default: +/- 4 sigma from default_chain)
        
     ticks, optional :
-        a dictionary mapping parameter names to list of [ticks]
-        (default: [-2, 0, +2] sigma from default_chain)
+        a dictionary giving a list of ticks for each parameter
+        
+    nticks, optional :
+        roughly how many x ticks to show. can be dictionary to 
+        specify each parameter separately. (default: 4)
        
     fig, optional :
         figure of figure number in which to plot (default: figure(0))
@@ -580,7 +590,7 @@ def likegrid1d(chains, params='all',
     nrow = len(params)/ncol+1
     if size is not None: fig.set_size_inches(size*ncol,size*nrow/aspect)
     if colors is None: colors=['b','orange','k','m','cyan']
-    fig.subplots_adjust(hspace=0.4)
+    fig.subplots_adjust(hspace=0.4,wspace=0.1)
        
     if lims is None: lims = {}
     lims = {p:(lims[p] if p in lims 
@@ -599,8 +609,14 @@ def likegrid1d(chains, params='all',
         ax.set_xlim(lims[p1])
         ax.set_ylim(0,1)
         ax.set_title(param_name_mapping.get(p1,p1),size=param_label_size)
+        ax.tick_params(labelsize=tick_label_size)
+        if ticks and p1 in ticks:
+            ax.set_xticks(ticks[p1])
+        else:
+            ax.xaxis.set_major_locator(MaxNLocator(nbins=nticks.get(p1,4) if isinstance(nticks,dict) else nticks))
+        ax.xaxis.set_minor_locator(AutoMinorLocator())
+        ax.xaxis.set_major_formatter(ScalarFormatter(useOffset=False))
 
-   
     if labels is not None:
         fig.legend([Line2D([0],[0],c=c,linewidth=2) for c in colors],labels,fancybox=True,shadow=True,
                    loc=legend_loc if legend_loc is not None else (0,1-1./nrow))
