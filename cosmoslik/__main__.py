@@ -3,7 +3,8 @@
 import sys, os, cosmoslik as K, traceback, argparse
 
 parser = argparse.ArgumentParser(prog='cosmoslik.py')
-parser.add_argument('params.ini',nargs='?',help='a parameter file to run')
+parser.add_argument('script.py',nargs='?',help='a chain script to run')
+parser.add_argument('--args',nargs='*',metavar='<args>',help='arguments to pass to the script')
 parser.add_argument('--list',action='store_true',default=False,help='list available modules')
 parser.add_argument('--doc',nargs=1,metavar='<module>',help='print the documentation for a module')
 parser.add_argument('--html_doc',nargs=1,metavar='<module>',help='open the documentation for a module in a web-browser')
@@ -40,9 +41,12 @@ def main(args):
         sys.argv.pop(i); sys.argv.pop(i)
         os.system("mpiexec -n %i %s -m cosmoslik %s"%(int(args['n'][0]),sys.executable,' '.join(sys.argv[1:])))
         
-    elif args['params.ini']:
+    elif args['script.py']:
         from cosmoslik import load_script
-        p = load_script(args['params.ini'])
+        def try_eval(x):
+            try: return eval(x)
+            except: return x
+        p = load_script(args['script.py'], *(map(try_eval,args['args'] or [])))
         for _ in p.sample(): pass
 
 
