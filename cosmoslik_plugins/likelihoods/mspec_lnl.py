@@ -2,7 +2,7 @@ import mspec as M
 from mspec.utils import pairs
 from numpy import dot, arange, product, zeros, load, exp, vstack, hstack, ones, loadtxt, array, dot, sqrt, diag
 from scipy.linalg import cho_solve, cholesky, inv
-from cosmoslik import SlikPlugin
+from cosmoslik import SlikPlugin, all_kw
 from collections import defaultdict
 import cPickle
 from scipy.stats import gamma
@@ -13,28 +13,36 @@ class mspec_lnl(SlikPlugin):
     def __init__(self,
                  signal,
                  use=None,
+                 resgal=None,
                  cleaning=None,
                  egfs_kwargs=None,
+                 cal=None,
                  ):
 
-        super(mspec_lnl,self).__init__()
+        super(mspec_lnl,self).__init__(**all_kw(locals()))
 
-        self.signal = signal if isinstance(signal,M.PowerSpectra) else M.load_signal(signal) 
-        self.use = use
-        self.cleaning = cleaning
-        self.egfs_kwargs = egfs_kwargs if egfs_kwargs is not None else defaultdict(lambda: {})        
+        if not isinstance(signal,M.PowerSpectra): self.signal = M.load_signal(signal) 
+        if egfs_kwargs is None: self.egfs_kwargs = defaultdict(lambda: {})    
 
-        self.processed_signal = self.process_signal(self.signal)
-
-        self.signal_matrix_cov = self.processed_signal.get_as_matrix(lrange=self.use).cov
+        processed_signal = self.process_signal(self.signal,docal=False)
+        self.signal_matrix_cov = processed_signal.get_as_matrix(lrange=self.use).cov
         self.signal_matrix_cho_cov = cholesky(self.signal_matrix_cov), False
         
         
         
-    def process_signal(self, sig):
+    def process_signal(self, sig, docal=True, docov=True):
         """Get processed signal, appyling calibration, doing linear combination, etc.."""
-              
-        return sig if self.cleaning is None else sig.lincombo(self.cleaning)
+        
+        if self.cleaning: 
+            sig = sig.lincombo(self.cleaning,docov=docov)
+
+        if self.resgal: 
+            sig = sig - self.resgal
+
+        if docal and self.cal: 
+            sig = sig.lincombo({k:{k:self.cal.get('_'.join(k),1)} for k in sig.get_maps()},normalize=False,docov=docov)
+            
+        return sig
 
 
     def get_cl_model(self, cmb, egfs):
@@ -56,8 +64,7 @@ class mspec_lnl(SlikPlugin):
         
         cl_model = self.get_cl_model(cmb, egfs).binned(self.signal.binning)
         cl_model_matrix = cl_model.get_as_matrix(lrange=self.use).spec
-        signal_matrix_spec = self.process_signal(self.signal).get_as_matrix(lrange=self.use,get_cov=False).spec
-        
+        signal_matrix_spec = self.process_signal(self.signal,docov=False).get_as_matrix(lrange=self.use).spec
         
         #Compute the likelihood  
         dcl = cl_model_matrix - signal_matrix_spec
@@ -79,9 +86,12 @@ class mspec_lnl(SlikPlugin):
         bin=self.signal.binning
         s = bin(slice(*self.use[spec]))
         cl_model = self.get_cl_model(cmb, egfs).binned(bin)[spec][s]
-        errorbar(self.processed_signal.ells[s],
-                 self.processed_signal[spec][s] - cl_model,
-                 yerr=sqrt(diag(self.processed_signal.cov[(spec,spec)][s,s])),ls='',marker='.')
+        processed_signal_spec = self.process_signal(self.signal,docal=True,docov=False)
+        processed_signal_cov  = self.process_signal(self.signal,docal=False,docov=True)
+        errorbar(processed_signal_spec.ells[s],
+                 processed_signal_spec[spec][s] - cl_model,
+                 yerr=sqrt(diag(processed_signal_cov.cov[spec,spec][s,s])),
+                 ls='',marker='.')
         ylim(*{'TT':(-50,50),'TE':(-10,10),'EE':(-5,5)}[spec[0][0]+spec[1][0]])        
         
     def plot_all(self,cmb,egfs,which=None,ncol=3,size=4,aspect=1.6):
@@ -107,7 +117,7 @@ class mspec_lnl(SlikPlugin):
             title(k)        
 
 
-    def chi2(self,cmb,egfs,use=None):
+    def chi2(self,cmb,egfs,use=None,nparams=0):
         """
         Return a tuple of (chi2, dof, pte, nsig).
         
@@ -115,6 +125,7 @@ class mspec_lnl(SlikPlugin):
         -----------
         cmb/egfs: The cmb and egfs result.
         use: Which spectra and lranges to include in the chi2.
+        nparams: Number to subtract from the d.o.f. for calculating the PTE. 
         """
         if use is None: use=self.use
         use = {k:(lambda x: x if x is not None else self.use[k])(use.get(k)) for k in use}
@@ -124,7 +135,7 @@ class mspec_lnl(SlikPlugin):
             
         dcl = cl_model_matrix - signal_matrix.spec
         chi2 = dot(dcl,dot(inv(signal_matrix.cov),dcl))
-        k = cl_model_matrix.size
-        pte = gamma.pdf(k/2.,chi2/2.)
-        nsig = -2*erfinv(4*pte-1)
-        return (chi2,k,pte,nsig)            
+        k = cl_model_matrix.size - nparams
+        pte = gamma.cdf(k/2.,chi2/2.)
+        nsig = sqrt(2.)*erfinv(1-pte)
+        return (chi2,k,pte,nsig)
