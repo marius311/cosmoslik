@@ -213,7 +213,6 @@ class metropolis_hastings(SlikSampler):
 
     def _mpi_mcmc(self,x,lnl):  
 
-        output_start = self._output_file.tell()
     
         (rank,size,comm) = mpi.get_mpi()
         if mpi.get_size()==1:
@@ -236,9 +235,8 @@ class metropolis_hastings(SlikSampler):
                     cPickle.dump([samples],self._output_file,protocol=2)
             
         else:
-        
             from mpi4py import MPI
-            
+            output_start = self._output_file.tell()
             if rank==0:
                 finished = [False]*(size-1)
                 samples = [[] for _ in range(size-1)]
