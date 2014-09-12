@@ -11,10 +11,10 @@ class clik(SlikPlugin):
                  clik_file,
                  **nuisance):
         
-        super(clik_like,self).__init__(**nuisance)
+        super(clik,self).__init__(**nuisance)
 
-        import clik
-        self.clik = clik.clik(clik_file)            
+        import clik as _clik
+        self.clik = _clik.clik(clik_file)            
         
         
     def __call__(self, cmb):
