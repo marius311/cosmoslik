@@ -32,6 +32,7 @@ class cosmology(SlikPlugin):
         if 'neff' in model: massive_neutrinos = param(3,.2)
         if 'yp' in model: Yp = param(.24,0.1)
         if 'mnu' in model: omnuh2 = param(0,0.001,range=(0,1))
+        if 'nrun' in model: nrun = param(0,0.01)
         
         super(cosmology,self).__init__(**dict(all_kw(locals()),**kwargs))
 
