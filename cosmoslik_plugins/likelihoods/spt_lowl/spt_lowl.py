@@ -52,13 +52,12 @@ class spt_lowl(SlikPlugin):
 
     def __call__(self, 
                  cmb, 
-                 egfs,
-                 acalib=1):
+                 egfs):
             
         cl = self.get_cl_model(cmb,egfs)
             
         #Apply windows and calculate likelihood
-        dcl = acalib*self.spec-cl
+        dcl = self.get('cal',1)*self.spec-cl
         return dot(dcl,cho_solve(self.cho_sigma, dcl))/2
 
 
