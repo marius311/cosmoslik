@@ -20,7 +20,6 @@ from collections import defaultdict
 import cPickle
 from functools import partial
 from multiprocessing.pool import Pool
-from matplotlib.ticker import AutoMinorLocator, ScalarFormatter, MaxNLocator
 
 __all__ = ['Chain','Chains',
            'like1d','like2d','likegrid','likegrid1d','likepoints',
@@ -275,6 +274,7 @@ class Chains(list):
     
     def burnin(self,n): 
         """Remove the first n samples from each chain."""
+
         return Chains(c.burnin(n) for c in self)
     
     def join(self): 
@@ -580,6 +580,8 @@ def likegrid1d(chains, params='all',
         number of bins for 2d plots (default: 20)
     """
     from matplotlib.pyplot import figure, Line2D
+    from matplotlib.ticker import AutoMinorLocator, ScalarFormatter, MaxNLocator
+
     fig = figure(0) if fig is None else (figure(fig) if isinstance(fig,int) else fig)
     if type(chains)!=list: chains=[chains]
         
