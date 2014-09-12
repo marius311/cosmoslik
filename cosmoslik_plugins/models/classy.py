@@ -71,6 +71,9 @@ class classy(SlikPlugin):
         ell = arange(l_max_scalar+1)
         self.cmb_result = {'cl_%s'%x:(self.model.lensed_cl(l_max_scalar)[x.lower()])*Tcmb**2*1e12*ell*(ell+1)/2/pi
                            for x in ['TT','TE','EE','BB','PP','TP']}
+
+        self.model.struct_cleanup()
+        self.model.empty()
         
         return self.cmb_result
 
