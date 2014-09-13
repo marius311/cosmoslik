@@ -263,7 +263,8 @@ class metropolis_hastings(SlikSampler):
                             self._output_file.truncate()
                             self._output_file.flush()
                             dumptime = int(1e3*(time.time() - t))
-                            print '\033[93mWork for %i: propsoal=%ims dump=%ims\033[0m'%(source,covtime,dumptime) 
+                            if self.print_level>=2: 
+                                print '\033[93mWork for %i: propsoal=%ims dump=%ims\033[0m'%(source,covtime,dumptime) 
                     else: 
                         finished[source-1]=True
                         
@@ -278,8 +279,8 @@ class metropolis_hastings(SlikSampler):
                         comm.send((rank,samples),dest=0)
                         self.__dict__.update(comm.recv(source=0))
                         samples = []
-                        print '\033[93mChain %i wasted %ims \033[0m'%(rank,int(1e3*(time.time()-t)))
-                        # print sqrt(diag(self.proposal_cov))
+                        if self.print_level>=2: 
+                            print '\033[93mChain %i wasted %ims \033[0m'%(rank,int(1e3*(time.time()-t)))
                         
                 comm.send((rank,samples),dest=0)
                 comm.send((rank,None),dest=0)
