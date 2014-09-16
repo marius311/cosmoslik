@@ -502,24 +502,25 @@ def likegrid(chains, params=None,
 from collections import Iterable
 import operator as op
 
-def likegrid1d(chains, params='all',
-             lims=None, 
-             ticks=None,
-             nticks=4,
-             nsig=3,
-             colors=None,
-             nbins1d=30,
-             labels=None,
-             fig=None,
-             size=2,
-             aspect=1,
-             legend_loc=None,
-             linewidth=1,
-             param_name_mapping=None,
-             param_label_size=None,
-             tick_label_size=None,
-             ncol=4,
-             ):
+def likegrid1d(chains, 
+               params='all',
+               lims=None, 
+               ticks=None,
+               nticks=4,
+               nsig=3,
+               colors=None,
+               nbins1d=30,
+               labels=None,
+               fig=None,
+               size=2,
+               aspect=1,
+               legend_loc=None,
+               linewidth=1,
+               param_name_mapping=None,
+               param_label_size=None,
+               tick_label_size=None,
+               ncol=4,
+               axes=None):
     """
     Make a grid of 1-d likelihood contours.
    
@@ -603,8 +604,8 @@ def likegrid1d(chains, params='all',
             for p in params}
     
     n=len(params)
-    for (i,p1) in enumerate(params,1 if labels is None else 2):
-        ax=fig.add_subplot(nrow,ncol,i)
+    for (i,p1) in enumerate(params,0 if axes is not None else 2 if labels is not None else 1):
+        ax=axes[i] if axes is not None else fig.add_subplot(nrow,ncol,i)
         if ticks is not None and p1 in ticks:
             ax.set_xticks(ticks[p1])
         for (ch,col) in zip(chains,colors):
