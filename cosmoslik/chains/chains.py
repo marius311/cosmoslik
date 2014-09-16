@@ -551,7 +551,14 @@ def likegrid1d(chains,
         specify each parameter separately. (default: 4)
        
     fig, optional :
-        figure of figure number in which to plot (default: figure(0))
+        figure of figure number in which to plot (default: new figure)
+
+    ncol, optional :
+        the number of colunms (default: 4)
+
+    axes, optional :
+        an array of axes into which to plot. if this is provided, fig and ncol 
+        are ignored. must have len(axes) >= len(params). 
        
     size, optional :
         size in inches of one plot (default: 2)
@@ -559,8 +566,6 @@ def likegrid1d(chains,
     aspect, optional :
         aspect ratio (default: 1)
 
-    ncol, optional :
-        the number of colunms (default: 4)
        
     colors, optional :
         colors to cycle through for plotting
@@ -579,11 +584,12 @@ def likegrid1d(chains,
        
     nbins2d, optional :
         number of bins for 2d plots (default: 20)
+
+
     """
     from matplotlib.pyplot import figure, Line2D
     from matplotlib.ticker import AutoMinorLocator, ScalarFormatter, MaxNLocator
 
-    fig = figure(0) if fig is None else (figure(fig) if isinstance(fig,int) else fig)
     if type(chains)!=list: chains=[chains]
         
     if params in ['all','common']: 
@@ -593,9 +599,11 @@ def likegrid1d(chains,
                          
     if param_name_mapping is None: param_name_mapping = {}
     nrow = len(params)/ncol+1
-    if size is not None: fig.set_size_inches(size*ncol,size*nrow/aspect)
+    if axes is None:
+        if fig is None: fig = figure(fig) if isinstance(fig,int) else figure()
+        if size is not None: fig.set_size_inches(size*ncol,size*nrow/aspect)
+        fig.subplots_adjust(hspace=0.4,wspace=0.1)
     if colors is None: colors=['b','orange','k','m','cyan']
-    fig.subplots_adjust(hspace=0.4,wspace=0.1)
        
     if lims is None: lims = {}
     lims = {p:(lims[p] if p in lims 
