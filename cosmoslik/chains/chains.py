@@ -20,6 +20,8 @@ from collections import defaultdict
 import cPickle
 from functools import partial
 from multiprocessing.pool import Pool
+from numbers import Number
+
 
 __all__ = ['Chain','Chains',
            'like1d','like2d','likegrid','likegrid1d','likepoints',
@@ -40,9 +42,15 @@ class Chain(dict):
         """Deep copy the chain so post-processing, etc... works right"""
         return Chain({k:v.copy() for k,v in self.iteritems()})
         
-    def params(self): 
-        """Returns the parameters in this chain (i.e. the keys except 'lnl' and 'weight'"""
-        return set([k for k in self.keys() if not k.startswith('_')])-set(["lnl","weight"])
+    def params(self,non_numeric=False): 
+        """
+        Returns the parameters in this chain (i.e. the keys except 'lnl' and 'weight')
+        Args:
+            numeric: whether to include non-numeric parameters (default: False)
+        """
+        return (set([k for k,v in self.items() if 
+                    (not k.startswith('_') and (non_numeric or issubclass(v.dtype.type,Number)))])
+                -set(["lnl","weight"]))
     
     def sample(self,s,keys=None): 
         """Return a sample or a range of samples depending on if s is an integer or a slice object."""
@@ -213,6 +221,7 @@ class Chain(dict):
             f.write("# "+" ".join(keys)+"\n")
             savetxt(f,self.matrix(keys))
             
+
     def plot(self,param=None,ncols=5,fig=None,size=4):
         """Plot the value of a parameter as a function of sample number."""
         from matplotlib.pyplot import figure
@@ -279,7 +288,7 @@ class Chains(list):
     
     def join(self): 
         """Combine the chains into one."""
-        return Chain((k,hstack([c[k] for c in self])) for k in self[0].keys())
+        return Chain((k,concatenate([c[k] for c in self])) for k in self[0].keys())
     
     def plot(self,param=None,fig=None,**kwargs): 
         """Plot the value of a parameter as a function of sample number for each chain."""
