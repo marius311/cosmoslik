@@ -511,24 +511,25 @@ def likegrid(chains, params=None,
 from collections import Iterable
 import operator as op
 
-def likegrid1d(chains, params='all',
-             lims=None, 
-             ticks=None,
-             nticks=4,
-             nsig=3,
-             colors=None,
-             nbins1d=30,
-             labels=None,
-             fig=None,
-             size=2,
-             aspect=1,
-             legend_loc=None,
-             linewidth=1,
-             param_name_mapping=None,
-             param_label_size=None,
-             tick_label_size=None,
-             ncol=4,
-             ):
+def likegrid1d(chains, 
+               params='all',
+               lims=None, 
+               ticks=None,
+               nticks=4,
+               nsig=3,
+               colors=None,
+               nbins1d=30,
+               labels=None,
+               fig=None,
+               size=2,
+               aspect=1,
+               legend_loc=None,
+               linewidth=1,
+               param_name_mapping=None,
+               param_label_size=None,
+               tick_label_size=None,
+               ncol=4,
+               axes=None):
     """
     Make a grid of 1-d likelihood contours.
    
@@ -559,7 +560,14 @@ def likegrid1d(chains, params='all',
         specify each parameter separately. (default: 4)
        
     fig, optional :
-        figure of figure number in which to plot (default: figure(0))
+        figure of figure number in which to plot (default: new figure)
+
+    ncol, optional :
+        the number of colunms (default: 4)
+
+    axes, optional :
+        an array of axes into which to plot. if this is provided, fig and ncol 
+        are ignored. must have len(axes) >= len(params). 
        
     size, optional :
         size in inches of one plot (default: 2)
@@ -567,8 +575,6 @@ def likegrid1d(chains, params='all',
     aspect, optional :
         aspect ratio (default: 1)
 
-    ncol, optional :
-        the number of colunms (default: 4)
        
     colors, optional :
         colors to cycle through for plotting
@@ -587,11 +593,12 @@ def likegrid1d(chains, params='all',
        
     nbins2d, optional :
         number of bins for 2d plots (default: 20)
+
+
     """
     from matplotlib.pyplot import figure, Line2D
     from matplotlib.ticker import AutoMinorLocator, ScalarFormatter, MaxNLocator
 
-    fig = figure(0) if fig is None else (figure(fig) if isinstance(fig,int) else fig)
     if type(chains)!=list: chains=[chains]
         
     if params in ['all','common']: 
@@ -601,9 +608,11 @@ def likegrid1d(chains, params='all',
                          
     if param_name_mapping is None: param_name_mapping = {}
     nrow = len(params)/ncol+1
-    if size is not None: fig.set_size_inches(size*ncol,size*nrow/aspect)
+    if axes is None:
+        if fig is None: fig = figure(fig) if isinstance(fig,int) else figure()
+        if size is not None: fig.set_size_inches(size*ncol,size*nrow/aspect)
+        fig.subplots_adjust(hspace=0.4,wspace=0.1)
     if colors is None: colors=['b','orange','k','m','cyan']
-    fig.subplots_adjust(hspace=0.4,wspace=0.1)
        
     if lims is None: lims = {}
     lims = {p:(lims[p] if p in lims 
@@ -612,8 +621,8 @@ def likegrid1d(chains, params='all',
             for p in params}
     
     n=len(params)
-    for (i,p1) in enumerate(params,1 if labels is None else 2):
-        ax=fig.add_subplot(nrow,ncol,i)
+    for (i,p1) in enumerate(params,0 if axes is not None else 2 if labels is not None else 1):
+        ax=axes[i] if axes is not None else fig.add_subplot(nrow,ncol,i)
         if ticks is not None and p1 in ticks:
             ax.set_xticks(ticks[p1])
         for (ch,col) in zip(chains,colors):
