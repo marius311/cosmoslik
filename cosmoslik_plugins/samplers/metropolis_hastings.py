@@ -291,14 +291,14 @@ class metropolis_hastings(SlikSampler):
                         self.__dict__.update(comm.recv(source=0))
                         if self.debug_output: 
                             print '\033[93mChain %i wasted %ims \033[0m'%(rank,int(1e3*(time.time()-t)))
-                    elif self._output_file:
+                    elif self.output_file is not None:
                         cPickle.dump((0,samples[:i]),self._output_file,protocol=2)
 
                     if i<self.mpi_comm_freq-1: 
                         if size>1: comm.send((rank,None),dest=0)
                         break
             finally:
-                if size==1 and self._output_file:
+                if size==1 and self.output_file is not None:
                     self._output_file.close()
 
        
