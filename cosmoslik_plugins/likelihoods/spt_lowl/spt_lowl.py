@@ -1,4 +1,4 @@
-from numpy import delte, array, fromstring, loadtxt, dot, arange, diag, hstack, zeros
+from numpy import delete, array, fromstring, loadtxt, dot, arange, diag, hstack, zeros
 from scipy.linalg import cho_factor, cho_solve
 from cosmoslik import SlikPlugin
 import os.path as osp
