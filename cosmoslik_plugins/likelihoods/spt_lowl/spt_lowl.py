@@ -1,4 +1,4 @@
-from numpy import array, fromstring, loadtxt, dot, arange, diag, hstack, zeros
+from numpy import delte,array, fromstring, loadtxt, dot, arange, diag, hstack, zeros
 from scipy.linalg import cho_factor, cho_solve
 from cosmoslik import SlikPlugin
 import os.path as osp
@@ -9,6 +9,8 @@ class spt_lowl(SlikPlugin):
     def __init__(self,
                  which=None,
                  lmin=None,
+                 lmax=None,
+                 drop=None,
                  **kwargs):
         
         super(spt_lowl,self).__init__(**kwargs)
@@ -34,9 +36,20 @@ class spt_lowl(SlikPlugin):
         
         if lmin is not None:
             bmin = sum(1 for _ in takewhile(lambda x: x<lmin, (sum(1 for _ in takewhile(lambda x: abs(x)<.001,w) ) for w in self.windows)))
-            self.spec = self.spec[bmin:]
-            self.sigma = self.sigma[bmin:,bmin:]
-            self.windows = self.windows[bmin:]
+        else: bmin = 0
+
+        if lmax is not None:
+            bmax = sum(1 for _ in takewhile(lambda x: x<lmax, [3251 - sum(1 for _ in takewhile(lambda x: abs(x)<.001,reversed(w)) ) for w in self.windows]))
+        else: bmax = 48
+
+        self.spec = self.spec[bmin:bmax]
+        self.sigma = self.sigma[bmin:bmax,bmin:bmax]
+        self.windows = self.windows[bmin:bmax]
+        
+        if drop is not None:
+        	self.spec = delete(self.spec,drop)
+        	self.sigma = delete(delete(self.sigma,drop,0),drop,1)
+        	self.windows = delete(self.windows,drop,0)
         
         self.cho_sigma = cho_factor(self.sigma)
         
