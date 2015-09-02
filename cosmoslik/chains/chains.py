@@ -531,6 +531,7 @@ def likegrid1d(chains,
                param_name_mapping=None,
                param_label_size=None,
                tick_label_size=None,
+               titley=1,
                ncol=4,
                axes=None):
     """
@@ -633,7 +634,7 @@ def likegrid1d(chains,
         ax.set_yticks([])
         ax.set_xlim(lims[p1])
         ax.set_ylim(0,1)
-        ax.set_title(param_name_mapping.get(p1,p1),size=param_label_size)
+        ax.set_title(param_name_mapping.get(p1,p1),size=param_label_size,y=titley)
         ax.tick_params(labelsize=tick_label_size)
         if ticks and p1 in ticks:
             ax.set_xticks(ticks[p1])
