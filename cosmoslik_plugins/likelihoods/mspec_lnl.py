@@ -45,7 +45,7 @@ class mspec_lnl(SlikPlugin):
         return sig
 
 
-    def get_cl_model(self, cmb, egfs):
+    def get_cl_model(self, cmb, egfs, use=None):
         """ 
         Build an Mspec PowerSpectra object which holds CMB + foreground C_ell's
         for all the required frequencies 
@@ -54,7 +54,7 @@ class mspec_lnl(SlikPlugin):
         _egfs = egfs if isinstance(egfs,dict) else defaultdict(lambda: egfs)
         
         return M.PowerSpectra({(a,b):cmb['cl_%s%s'%(a[0],b[0])][:lmax] + _egfs[(a,b)](spectra='cl_TT',lmax=lmax,spec=(a,b),**self.egfs_kwargs.get((a,b),{}))
-                               for (a,b),(lmin,lmax) in self.use.items()})
+                               for (a,b),(lmin,lmax) in (use or self.use).items()})
 
 
     
