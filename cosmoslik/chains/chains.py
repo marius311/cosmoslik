@@ -178,7 +178,7 @@ class Chain(dict):
         
         Args:
             params - a parameter name, or a list of parameters
-            mean - the mean (should be a list is params was a list)
+            mean - the mean (should be a list if params was a list)
             covstd - if params was a list, this should be a 2-d array holding the covariance
                 if params was a single parameter, this should be the standard devation
                 
@@ -189,9 +189,12 @@ class Chain(dict):
         c=self.copy()   
         dx = self.matrix(params) - mean
         if is_iter(params) and not isinstance(params,str):
-            c['weight'] *= exp(-sum(dot(dx,inv(covstd))*dx,axis=1)/2)
+            dlnl=sum(dot(dx,inv(covstd))*dx,axis=1)/2
         else:
-            c['weight'] *= exp(-dx**2/2/covstd**2)
+            dlnl=dx**2/2/covstd**2
+        
+        c['weight'] *= exp(-dlnl)
+        c['lnl'] += dlnl
         return c
 
     def best_fit(self):
