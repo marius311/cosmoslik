@@ -12,10 +12,10 @@ class cosmology(SlikPlugin):
                  omch2 = 0.12,
                  tau = 0.09,
                  H0 = None,
-                 massive_neutrinos = 3.046,
-                 massless_neutrinos = 0.000,
+                 massive_neutrinos = 1,
+                 massless_neutrinos = 2.046,
                  omk = 0,
-                 omnuh2 = 0,
+                 omnuh2 = 0.00064,
                  nrun = 0,
                  w = -1,
                  **kwargs):

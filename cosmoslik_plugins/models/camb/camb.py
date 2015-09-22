@@ -21,8 +21,8 @@ class camb(SlikPlugin):
         super(camb,self).__init__()
         
         self._cambdir = os.path.abspath(os.path.join(os.path.dirname(__file__),'camb'))
-        self._cambdefs = read_ini(os.path.join(self._cambdir,'defaults.ini'))
-        self._cambdefs['HighLExtrapTemplate'] = os.path.abspath(os.path.join(self._cambdir,'HighLExtrapTemplate_lenspotentialCls.dat'))
+        self._cambdefs = read_ini(os.path.join(self._cambdir,'params.ini'))
+        self._cambdefs['highL_unlensed_cl_template'] = os.path.abspath(os.path.join(self._cambdir,'HighLExtrapTemplate_lenspotentialCls.dat'))
         self._camb = camb_f2py()
         pass
         
@@ -40,8 +40,8 @@ class camb(SlikPlugin):
                  nrun=0,
                  omk=0,
                  Yp=0.248,
-                 massive_neutrinos=3.046,
-                 massless_neutrinos=0.000,
+                 massive_neutrinos=1,
+                 massless_neutrinos=2.046,
                  do_nonlinear=0,
                  l_max_scalar=3000,
                  l_max_tensor=3000,
