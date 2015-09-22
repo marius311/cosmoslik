@@ -1,0 +1,30 @@
+from cosmoslik.waf.utils import build_f2py, opt_f2py, config_f2py, fpreproc, to_nodes
+import os.path as osp
+
+def options(opt):
+    opt_f2py(opt)
+
+def configure(conf):
+    config_f2py(conf)
+    try:
+        conf.detect_openmp()
+    except Exception:
+        pass
+    
+    
+def build(bld):
+    cambfiles = ['bessels.f90','power_tilt.f90','camb.f90','recfast.f90','utils.F90',
+                 'cmbmain.f90','inifile.f90','reionization.f90','constants.f90',
+                 'lensing.f90','SeparableBispectrum.F90','equations.f90',
+                 'halofit_ppf.f90','modules.f90','subroutines.f90']
+    cambfiles = [osp.join('camb',f) for f in cambfiles]
+    cambfiles = fpreproc(bld,cambfiles)
+    fpreproc(bld,'camb/inidriver.F90')
+
+    build_f2py(bld,
+               source='camb/inidriver.f90',
+               module_name='pycamb',
+               skip='get_mpk',
+               use='OPENMP',
+               install_path=bld.path.path_from(bld.root.find_node(bld.top_dir)),
+               extra_sources=cambfiles)
