@@ -61,7 +61,7 @@ class camb(SlikPlugin):
         cambini['get_tensor_cls'] = dotens = (r != 0)
         cambini['get_transfer'] = dotrans = any(x in outputs for x in ['lin_mpk','nonlin_mpk','trans'])
         if 'nonlin_mpk' in outputs: cambini['do_nonlinear'] = min(1,cambini.get('do_nonlinear',1))
-        cambini['do_lensing'] = dolens = (doscal and Alens != 0)
+        cambini['do_lensing'] = dolens = bool(doscal and Alens != 0)
         docl = doscal or dolens or dotens 
         
         for k,v in cambini.items():
