@@ -1,4 +1,0 @@
-[submodule "cosmoslik_plugins/models/camb/camb"]
-	path = cosmoslik_plugins/models/camb/camb
-    url = https://github.com/marius311/CAMB.git
-    ignore = dirty
