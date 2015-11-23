@@ -12,4 +12,4 @@ for _,fullname,_ in  _pkgutil.walk_packages(_cosmoslik_plugins.__path__,_cosmosl
                 setattr(_sys.modules[__name__],k,v)
     except Exception as e:
         pass
-del modname, mod, fullname, _, k, v
+del modname, mod, fullname, _, k, v, e
