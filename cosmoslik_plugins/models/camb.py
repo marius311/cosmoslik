@@ -16,6 +16,6 @@ class camb(SlikPlugin):
         
         params = {name_mapping.get(k,k):v for k,v in params.items()}
         cp = self._camb.set_params(**params)
-        result = self._camb.get_results(cp)
+        self.result = self._camb.get_results(cp)
         return dict(zip(['cl_%s'%x for x in ['TT','EE','BB','TE']],
-                        1e12*result.get_cmb_power_spectra(spectra=['total'])['total'].T))
+                        (cp.TCMB*1e6)**2*self.result.get_cmb_power_spectra(spectra=['total'])['total'].T))
