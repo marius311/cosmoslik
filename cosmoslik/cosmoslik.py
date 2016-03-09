@@ -367,7 +367,7 @@ def lsum(*args):
 
     This returns the sum myfunc1()+myfunc2(), but never evaluates myfunc2() if myfunc1() returns inf. 
 
-    See also `lsum2` to automatically store the results of myfunc1/2. 
+    See also `lsumk` to automatically store the results of myfunc1/2. 
     """
     s = 0
     for x in args:
