@@ -359,15 +359,43 @@ def get_all_plugins():
 
 def lsum(*args):
     """
-    *args is a list of no argument lambda functions
-    returns the sum of the returned values when each is evaluated
-    when/if a function returns inf, no other functions are evaluted
+    If your likelihood function is the sum of a bunch of others, you can do,
+
+    #my likelihood function
+    def __call__(self):
+        return lsum(lambda: myfunc1(), lambda: myfunc2())
+
+    This returns the sum myfunc1()+myfunc2(), but never evaluates myfunc2() if myfunc1() returns inf. 
+
+    See also `lsum2` to automatically store the results of myfunc1/2. 
     """
     s = 0
     for x in args:
         s+=x()
         if s==inf: break
     return s
+
+
+def lsumk(lnls,args):
+    """
+    If your likelihood function is the sum of a bunch of others, you can do,
+
+    def __call__(self):
+        self['lnls']={}
+        return lsum2(self['lnls'], [('key1',lambda: myfunc1()),
+                                    ('key2',lambda: myfunc2())])
+
+    This returns the sum myfunc1()+myfunc2(), but never evaluates myfunc2() if myfunc1() returns inf. 
+    It also stores the result myfunc1/2 to lnls['key1/2'] (stores nan if a function wasn't called)
+    """
+    s = 0
+    for k,f in args:
+        if s==inf: lnls[k]=nan
+        else:
+            lnls[k]=f()
+            s+=lnls[k]
+    return s
+
 
 
 def param_shortcut(*args):
