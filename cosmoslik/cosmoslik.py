@@ -7,7 +7,7 @@ import imp, hashlib, time
 __all__ = ['load_script','Slik','SlikFunction',
            'SlikDict','SlikPlugin','SlikSampler','param','param_shortcut',
            'SubprocessExtension','get_plugin','get_all_plugins',
-           'lsum','all_kw','run_chain','SlikMain']
+           'lsum','lsumk','all_kw','run_chain','SlikMain']
 
 """ Loaded datafiles will reside in this empty module. """
 datafile_module = 'cosmoslik.scripts'
