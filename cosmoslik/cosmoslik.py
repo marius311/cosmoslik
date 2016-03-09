@@ -1,7 +1,7 @@
 from collections import OrderedDict
 import copy, threading, pkgutil, inspect, sys, os, socket
 from multiprocessing import Process, Pipe
-from numpy import inf, hstack, transpose
+from numpy import inf, nan, hstack, transpose
 import imp, hashlib, time
 
 __all__ = ['load_script','Slik','SlikFunction',
