@@ -89,7 +89,7 @@ cdef class _cosmo_derived:
         return H0
 
 
-    cdef double rho_gamma_nu(self, double z):
+    cpdef double rho_gamma_nu(self, double z):
         """
         Returns: energy density in neutrinos + photons in eV^4
         """
@@ -107,7 +107,7 @@ cdef class _cosmo_derived:
         return sqrt(EightPiGOver3*(rhoxOverOmegaxh2*(self.ommh2*(1+z)**3 + self.omkh2*(1+z)**2 + self.omvh2) + self.rho_gamma_nu(z)))/KmPerSOverC
 
 
-    cdef double rhoredshift(self, double a, double m):
+    cpdef double rhoredshift(self, double a, double m):
         """
         Args:
             ae : early scale factor when still relativistic,
