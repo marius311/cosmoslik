@@ -403,8 +403,10 @@ def get_covariance(data,weights=None):
 
 
 def likegrid(chains, params=None, 
-             lims=None, ticks=None,
+             lims=None, ticks=None, nticks=5,
              default_chain=0,
+             spacing=0.05,
+             xtick_rotation=30,
              colors=None, filled=True,
              nbins1d=30, nbins2d=20,
              labels=None,
@@ -436,8 +438,17 @@ def likegrid(chains, params=None,
         
     ticks, optional :
         a dictionary mapping parameter names to list of [ticks]
-        (default: [-2, 0, +2] sigma from default_chain)
+        (default: automatically picks `nticks`)
+
+    nticks, optional :
+        roughly how many ticks per axes (default: 5)
         
+    xtick_rotation, optional :
+        numbers of degrees to rotate the xticks by (default: 30)
+
+    spacing, optional :
+        space in between plots as a fraction of figure width (default: 0.05)
+
     fig, optional :
         figure of figure number in which to plot (default: figure(0))
         
@@ -462,25 +473,27 @@ def likegrid(chains, params=None,
     nbins2d, optional :
         number of bins for 2d plots (default: 20)
     """
-    from matplotlib.pyplot import figure, Line2D
+    from matplotlib.pyplot import figure, Line2D, xticks
+    from matplotlib.ticker import MaxNLocator
     fig = figure(0) if fig is None else (figure(fig) if isinstance(fig,int) else fig)
     if type(chains)!=list: chains=[chains]
     if params==None: params = sorted(reduce(lambda x,y: set(x)&set(y), [c.params() for c in chains]))
     if param_name_mapping is None: param_name_mapping = {}
     if size is not None: fig.set_size_inches(*([size*len(params)]*2))
     if colors is None: colors=['b','orange','k','m','cyan']
-    fig.subplots_adjust(hspace=0,wspace=0)
+    fig.subplots_adjust(hspace=spacing,wspace=spacing)
     
     c=chains[default_chain] if isinstance(default_chain,int) else default_chain
     lims = dict({p:(max(min(c[p]),mean(c[p])-4*std(c[p])),min(max(c[p]),mean(c[p])+4*std(c[p]))) for p in params},**(lims if lims is not None else {}))
-    ticks = dict({p:[t for t in ts if lims[p][0]<=t<=lims[p][1]] for (p,ts) in zip(params,(c.mean(params)+c.std(params)*transpose([[-2,0,2]])).T)},**(ticks if ticks is not None else {}))
+    if ticks is None: ticks = {}
 
     n=len(params)
     for (i,p1) in enumerate(params):
         for (j,p2) in enumerate(params):
             if (i<=j):
                 ax=fig.add_subplot(n,n,j*n+i+1)
-                ax.set_xticks(ticks[p1])
+                ax.xaxis.set_major_locator(MaxNLocator(nticks))
+                ax.yaxis.set_major_locator(MaxNLocator(nticks))
                 ax.set_xlim(*lims[p1])
                 if (i==j): 
                     for (ch,col) in zip(chains,colors): 
@@ -490,25 +503,22 @@ def likegrid(chains, params=None,
                 elif (i<j): 
                     for (ch,col) in zip(chains,colors): 
                         if p1 in ch and p2 in ch: ch.like2d(p1,p2,filled=filled,nbins=nbins2d,color=col,ax=ax)
-                    ax.set_yticks(ticks[p2])
+                    if p2 in ticks: ax.set_yticks(ticks[p2])
                     ax.set_ylim(*lims[p2])
                         
                 if i==0: 
                     ax.set_ylabel(param_name_mapping.get(p2,p2),size=param_label_size)
-                    ax.set_yticklabels(['%.3g'%t for t in ticks[p2]])
                 else: 
                     ax.set_yticklabels([])
                 
                 if j==n-1: 
                     ax.set_xlabel(param_name_mapping.get(p1,p1),size=param_label_size)
-                    ax.set_xticklabels(['%.3g'%t for t in ticks[p1]])
+                    xticks(rotation=xtick_rotation)
                 else: 
                     ax.set_xticklabels([])
                     
-    fig.autofmt_xdate(rotation=90)
-    
     if labels is not None:
-        fig.legend([Line2D([0],[0],c=c) for c in colors],labels,fancybox=True,shadow=True,loc=legend_loc)
+        fig.legend([Line2D([0],[0],c=c,lw=2) for c in colors],labels,fancybox=True,shadow=True,loc=legend_loc)
 
 
 from collections import Iterable
