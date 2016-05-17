@@ -1,5 +1,6 @@
-import threading, os, socket
+import os, socket
 from multiprocessing import Process, Pipe
+from threading import Thread
 
 """
 Provides some utilities for automatically running SlikPlugins in a subprocess.
@@ -41,12 +42,32 @@ def subprocess_class(auto_restart=True):
         >>> myinst.x  #this works because the subprocess was automatically restarted
         3
 
+    Important:
+
+        The decorator replaces the name of the class, so if you use it later
+        for anything other than instantiation it will not work. One common
+        place the class is used in with "super". For exmaple, this following will not
+        work:
+
+            @subprocess_class(auto_restart=True)
+            class myclass(object):
+                def __init__(self):
+                    #next line will fail b/c myclass no longer points to the actual class
+                    super(myclass,self).__init__() 
+
+        Instead you should do:
+
+            @subprocess_class(auto_restart=True)
+            class myclass(object):
+                def __init__(self):
+                    super(self.__class__,self).__init__()
+
     Notes:
     
         * Constructors and functions with arbitrary combinations of
           args/kwargs work transparently
         * Arguments and return values must be pickle'able.
-        * Setting fields, e.g. myinst.x = 5 not currently implemented.
+        * Setting fields, e.g. myinst.x = 5, is not currently implemented.
 
     """
     def _subprocess_class(classobj):
@@ -69,12 +90,14 @@ class SubprocessException(object):
     def __init__(self,e):
         self.e=e
 
+class SubprocessInitException(SubprocessException): pass
+
 class SubprocessClass(object):
     
     def check_recv(self):
         r = [None]
         def recv(): r[0] = self._conn.recv()
-        th = threading.Thread(target=recv)
+        th = Thread(target=recv)
         th.daemon=True
         th.start()
 
@@ -86,6 +109,9 @@ class SubprocessClass(object):
                     self._start()
                 raise e
         
+        if isinstance(r[0],SubprocessException):
+            raise r[0].e
+
         return r[0]
     
     def _flush_subproc_stdout(self):
@@ -101,7 +127,12 @@ class SubprocessClass(object):
             for s in [1,2]: os.dup2(fd_out,s)
 
             #instantiate the object
-            obj=classobj(*args,**kwargs)
+            try:
+                obj=classobj(*args,**kwargs)
+            except Exception as e:
+                conn.send(SubprocessInitException(e))
+            else:
+                conn.send(True)
 
             #listen for requests
             while True:
@@ -126,6 +157,8 @@ class SubprocessClass(object):
         self._proc = Process(target=subproc_code,args=(conn_child,out_socket_child.fileno()))
         self._proc.daemon = True
         self._proc.start()
+        assert self.check_recv()
+
     
     def __init__(self, classobj, auto_restart=True, *args, **kwargs):
         self.auto_restart=auto_restart
@@ -144,8 +177,6 @@ class SubprocessClass(object):
         
         self._conn.send(attr)
         r = self.check_recv()
-        if isinstance(r,SubprocessException):
-            raise r.e
         if isinstance(r,SubprocessInstanceMethod): 
             r.subc=self
         return r
@@ -189,7 +220,7 @@ class _SubprocessExtension(object):
     def check_recv(self):
         r = [None]
         def recv(): r[0] = self._conn.recv()
-        th = threading.Thread(target=recv)
+        th = Thread(target=recv)
         th.daemon=True
         th.start()
 
