@@ -1,12 +1,12 @@
 from collections import OrderedDict
-import copy, threading, pkgutil, inspect, sys, os, socket
-from multiprocessing import Process, Pipe
+import copy, pkgutil, inspect, sys, os
 from numpy import inf, nan, hstack, transpose
 import imp, hashlib, time
+from subprocess_plugins import SubprocessExtension, subprocess_class
 
 __all__ = ['load_script','Slik','SlikFunction',
            'SlikDict','SlikPlugin','SlikSampler','param','param_shortcut',
-           'SubprocessExtension','get_plugin','get_all_plugins',
+           'SubprocessExtension','subprocess_class','get_plugin','get_all_plugins',
            'lsum','lsumk','all_kw','run_chain','SlikMain']
 
 """ Loaded datafiles will reside in this empty module. """
@@ -229,95 +229,6 @@ class SlikSampler(SlikDict):
         raise NotImplementedError()
     
     
-no_subproc = False
-    
-def SubprocessExtension(module_name,globals):
-    """
-    This imports a module and runs all of its code in a subprocess.
-    Its meant to be used by CosmoSlik plugins which load 
-    Python extension modules to facilitate clean exception handling. 
-    
-    If the plugin loads the extension module via ::
-    
-        from X import X
-        
-    then instead use ::
-    
-        X = SubprocessExtension('X',globals())
-    """
-    if no_subproc:
-        exec ('from %s import %s \n'
-              'mod = %s')%(module_name,module_name,module_name) in globals, locals()
-        return mod
-    else:
-        return _SubprocessExtension(module_name,globals)
-    
-    
-class _SubprocessExtension(object):
-    
-    def check_recv(self):
-        r = [None]
-        def recv(): r[0] = self._conn.recv()
-        th = threading.Thread(target=recv)
-        th.daemon=True
-        th.start()
-
-        while th.is_alive():
-            th.join(1e-3)
-            if not self._proc.is_alive(): 
-                raise Exception('Extension module died.\n%s'%self._subproc_stdout.read())
-        
-        if isinstance(r[0],Exception): raise r[0]
-        else: return r[0]
-    
-    def _flush_subproc_stdout(self):
-        try: self._subproc_stdout.read()
-        except IOError: pass
-        
-    def __init__(self, module_name, globals):
-        def subproc_code(conn, fd_out):
-            try:
-                #redirect output to a pipe back to the main process
-                for s in [1,2]: os.dup2(fd_out,s)
-                exec ('from %s import %s \n'
-                      'mod = %s')%(module_name,module_name,module_name) in globals, locals()
-                attrs = {k:(getattr(v,'__doc__',None),callable(v)) for k,v in vars(mod).items()}
-                conn.send(attrs)
-                while True:
-                    (attr, args, kwargs) = conn.recv()
-                    if attr in attrs and attrs[attr][1]: conn.send(getattr(mod,attr)(*args, **kwargs))
-                    else: conn.send(getattr(mod,attr))
-            except Exception, e: 
-                conn.send(e)
-                raise
-                return
-    
-        self._conn, conn_child = Pipe()
-        out_socket_parent, out_socket_child = socket.socketpair()
-        out_socket_parent.settimeout(0)
-        self._subproc_stdout = out_socket_parent.makefile()
-        self._proc = Process(target=subproc_code,args=(conn_child,out_socket_child.fileno()))
-        self._proc.daemon = True
-        self._proc.start()
-        self._attrs = self.check_recv()
-        
-    def __getattribute__(self, attr):
-        super_getattr = super(_SubprocessExtension,self).__getattribute__
-        try:
-            return super_getattr(attr)
-        except AttributeError:
-            if attr in self._attrs and self._attrs[attr][1]:
-                def wrap_method(*args, **kwargs):
-                    self._flush_subproc_stdout()
-                    self._conn.send((attr,args,kwargs))
-                    return self.check_recv()
-                wrap_method.__doc__ = self._attrs[attr][0]
-                return wrap_method
-            else:
-                super_getattr('_conn').send((attr,None,None))
-                return super_getattr('check_recv')()
-
-            
 def get_plugin(name):
     """
     Return a SlikPlugin class for plugin name. 
