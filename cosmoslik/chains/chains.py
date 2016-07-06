@@ -468,10 +468,10 @@ def likegrid(chains, params=None,
         (x,y) location of the legend (coordinates scaled to [0,1]) 
         
     nbins1d, optional : 
-        number of bins for 1d plots (default: 30)
+        number (or len(chains) length list) of bins for 1d plots (default: 30)
         
     nbins2d, optional :
-        number of bins for 2d plots (default: 20)
+        number (or len(chains) length list) of bins for 2d plots (default: 20)
     """
     from matplotlib.pyplot import figure, Line2D, xticks
     from matplotlib.ticker import MaxNLocator
@@ -481,6 +481,8 @@ def likegrid(chains, params=None,
     if param_name_mapping is None: param_name_mapping = {}
     if size is not None: fig.set_size_inches(*([size*len(params)]*2))
     if colors is None: colors=['b','orange','k','m','cyan']
+    if not isinstance(nbins2d,list): nbins2d = [nbins2d]*len(chains)
+    if not isinstance(nbins1d,list): nbins1d = [nbins1d]*len(chains)
     fig.subplots_adjust(hspace=spacing,wspace=spacing)
     
     c=chains[default_chain] if isinstance(default_chain,int) else default_chain
@@ -496,13 +498,13 @@ def likegrid(chains, params=None,
                 ax.yaxis.set_major_locator(MaxNLocator(nticks))
                 ax.set_xlim(*lims[p1])
                 if (i==j): 
-                    for (ch,col) in zip(chains,colors): 
-                        if p1 in ch: ch.like1d(p1,nbins=nbins1d,color=col,ax=ax)
+                    for (ch,col,nbins) in zip(chains,colors,nbins1d): 
+                        if p1 in ch: ch.like1d(p1,nbins=nbins,color=col,ax=ax)
                     ax.set_yticks([])
                     
                 elif (i<j): 
-                    for (ch,col) in zip(chains,colors): 
-                        if p1 in ch and p2 in ch: ch.like2d(p1,p2,filled=filled,nbins=nbins2d,color=col,ax=ax)
+                    for (ch,col,nbins) in zip(chains,colors,nbins2d): 
+                        if p1 in ch and p2 in ch: ch.like2d(p1,p2,filled=filled,nbins=nbins,color=col,ax=ax)
                     if p2 in ticks: ax.set_yticks(ticks[p2])
                     ax.set_ylim(*lims[p2])
                         
