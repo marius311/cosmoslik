@@ -1,4 +1,4 @@
-from numpy import log, mean, array, sqrt, diag, genfromtxt, sum, dot, cov, inf, loadtxt, diag, nan, hstack, empty, vstack, dtype, concatenate
+from numpy import log, mean, array, sqrt, diag, genfromtxt, sum, dot, cov, inf, loadtxt, diag, nan, hstack, empty, vstack, dtype, concatenate, ix_
 from numpy.random import multivariate_normal, uniform, seed
 import cosmoslik.mpi as mpi
 import re, time
@@ -7,7 +7,7 @@ from hashlib import md5
 import cPickle
 from collections import defaultdict, OrderedDict
 from cosmoslik import SlikSampler, SlikFunction, param, all_kw
-from cosmoslik.chains.chains import Chain, Chains
+from cosmoslik.chains.chains import Chain, Chains, combine_covs
 from cosmoslik.cosmoslik import sample
 import multiprocessing
 import struct
@@ -115,33 +115,54 @@ class metropolis_hastings(SlikSampler):
                  yield_rejected=False):
         """
         Args:
-            params: The script to which this sampler is attached
-            output_file: File where to save the chain (if running with MPI, everything still
-                gets dumped into one file). By default only sampled parameters get saved. 
-                Use `cosmoslik.utils.load_chain`to load chains. 
-            output_extra_params: Extra parameters besides the sampled ones which to save to file. 
-                Arbitrary objects can be outputted, in which case entires should be tuples of (<name>,'object'),
-                or for more efficient and faster file write/reads (<name>,<dtype>) where <dtype> is a 
-                valid numpy dtype (e.g. '(10,10)d' for a 10x10 array of doubles, etc...)
-            num_samples: The number of total desired samples (including rejected ones) 
-            print_level: 0/1/2 to print little/medium/alot 
-            proposal_cov: Path to a file which holds the proposal covariance. The format
-                is a standard ascii matrix, with the first line being 
-                a comment with space-separated variable names. (See e.g. savecov). This should
-                be a best estimate of the posterior covariance. The actual proposal covariance is 
-                multiplied by `proposal_scale**2 / N` where `N` is the number of parameters.
-                (default: diagonal covariance taken from the `scale` of each parameter)
-            proposal_scale: Scale the proposal matrix. (default: 2.4)
-            proposal_update: Whether to update the proposal matrix. 
-                Ignored if not running with MPI. The proposal is updated by taking 
-                the sample covariance of the last half of each chain. (default: True) 
-            proposal_update_start: If `proposal_update` is True, how many total samples (including rejected) 
-                per chain to wait before starting to do updates (default: 1000). 
-            mpi_comm_freq: Number of accepted samples to wait inbetween the chains
-                communicating with the master process (default: 50).
-            reseed: Draw a random seed based on system time and process number before starting. (default: True) 
-            yield_rejected: Yield samples with 0 weigth (default: False)
-            debug_output: Print (code) debugging messages.
+            params: 
+                The script to which this sampler is attached
+            output_file: 
+                File where to save the chain (if running with MPI, everything
+                still gets dumped into one file). By default only sampled
+                parameters get saved.  Use `cosmoslik.utils.load_chain` to load
+                chains. 
+            output_extra_params: 
+                Extra parameters besides the sampled ones which to save to file.
+                Arbitrary objects can be outputted, in which case entires should
+                be tuples of (<name>,'object'), or for more efficient and faster
+                file write/reads (<name>,<dtype>) where <dtype> is a valid numpy
+                dtype (e.g. '(10,10)d' for a 10x10 array of doubles, etc...)
+            num_samples: 
+                The number of total desired samples (including rejected ones) 
+            print_level: 
+                0/1/2 to print little/medium/alot 
+            proposal_cov: 
+                One or a list of covariances which will be combined with
+                K.chains.combine_cov (see documentation there for understood
+                formats) to produce the full proposal covariance.  Covariance
+                for any sampled parameter not provided here will be taken  from
+                the `scale` attribute of that parameters. This should be a best
+                estimate of the posterior covariance. The actual proposal
+                covariance is  multiplied by `proposal_scale**2 / N` where `N`
+                is the number of parameters. (default: diagonal covariance taken
+                from the `scale` of each parameter)
+            proposal_scale: 
+                Scale the proposal matrix. (default: 2.4)
+            proposal_update: 
+                Whether to update the proposal matrix. Ignored if not running
+                with MPI. The proposal is updated by taking the sample
+                covariance of the last half of each chain. (default: True) 
+            proposal_update_start: 
+                If `proposal_update` is True, how many total samples (including
+                rejected) per chain to wait before starting to do updates
+                (default: 1000). 
+            mpi_comm_freq:
+                Number of accepted samples to wait inbetween the chains
+                communicating with the master process and having their progress
+                written to file (default: 50)
+            reseed: 
+                Draw a random seed based on system time and process number
+                before starting. (default: True) 
+            yield_rejected: 
+                Yield samples with 0 weight (default: False)
+            debug_output: 
+                Print (code) debugging messages.
         """
 
         if output_extra_params is None: output_extra_params = []
@@ -153,28 +174,24 @@ class metropolis_hastings(SlikSampler):
         self.proposal_cov = self.initialize_covariance(self.sampled)
 
     
-    def initialize_covariance(self,sampled):
-        """Load the sigma, defaulting to diagonal entries from the WIDTH of each parameter."""
-        if (self.proposal_cov is None): 
-            prop_names, prop = [], None
-        else: 
-            with open(self.proposal_cov) as f:
-                prop_names = re.sub("#","",f.readline()).split()
-                prop = loadtxt(f)
-                
-        for k,v in sampled.items():
-            if not (k in prop_names or hasattr(v,'scale')): 
-                raise ValueError("Parameter '%s' not in covariance and no scale given."%k)
+    def initialize_covariance(self, sampled):
+        """
+        Prepare the proposal covariance based on anything passed to
+        self.proposal_cov, defaulting to the `scale` of each sampled parameter
+        otherwise.
+        """
+        in_covs = [{k:v.scale for k,v in sampled.items() if hasattr(v,'scale')}]
+        if self.proposal_cov is not None:
+            in_covs += (self.proposal_cov if isinstance(self.proposal_cov,list) else [self.proposal_cov])
+        names, covs = combine_covs(*in_covs)
         
-        sigma = diag([getattr(v,'scale')**2. if hasattr(v,'scale') else nan for v in sampled.values()])
-        common = set(sampled.keys()) & set(prop_names)
-        if common:
-            idxs = zip(*list(list(product([ps.index(n) for n in common],repeat=2)) for ps in [sampled.keys(),prop_names]))
-            for ((i,j),(k,l)) in idxs: sigma[i,j] = prop[k,l]
-            
-        return sigma
-  
-
+        missing = [s for s in sampled if s not in names]
+        if missing:
+            raise ValueError("Parameters %s not in covariance and no scale given."%missing)
+        
+        idxs = [names.index(s) for s in sampled]
+        return covs[ix_(idxs,idxs)]
+        
         
     def sample(self,lnl):
         """

@@ -49,7 +49,7 @@ class Chain(dict):
             numeric: whether to include non-numeric parameters (default: False)
         """
         return (set([k for k,v in self.items() if 
-                    (not k.startswith('_') and (non_numeric or issubclass(v.dtype.type,Number)))])
+                    (not k.startswith('_') and (non_numeric or (v.ndim==1 and issubclass(v.dtype.type,Number))))])
                 -set(["lnl","weight"]))
     
     def sample(self,s,keys=None): 
@@ -395,7 +395,7 @@ def get_correlation(data,weights=None):
     return cv
 
 def get_covariance(data,weights=None):
-    if (weights==None): return cov(data.T)
+    if (weights is None): return cov(data.T)
     else:
         mean = sum(data.T*weights,axis=1)/sum(weights)
         zdata = data-mean
@@ -488,14 +488,15 @@ def likegrid(chains, params=None,
     c=chains[default_chain] if isinstance(default_chain,int) else default_chain
     lims = dict({p:(max(min(c[p]),mean(c[p])-4*std(c[p])),min(max(c[p]),mean(c[p])+4*std(c[p]))) for p in params},**(lims if lims is not None else {}))
     if ticks is None: ticks = {}
+    if isinstance(nticks,int): nticks={p:nticks for p in params}
 
     n=len(params)
     for (i,p1) in enumerate(params):
         for (j,p2) in enumerate(params):
             if (i<=j):
                 ax=fig.add_subplot(n,n,j*n+i+1)
-                ax.xaxis.set_major_locator(MaxNLocator(nticks))
-                ax.yaxis.set_major_locator(MaxNLocator(nticks))
+                ax.xaxis.set_major_locator(MaxNLocator(nticks.get(p1,5)))
+                ax.yaxis.set_major_locator(MaxNLocator(nticks.get(p2,5)))
                 ax.set_xlim(*lims[p1])
                 if (i==j): 
                     for (ch,col,nbins) in zip(chains,colors,nbins1d): 
@@ -520,7 +521,7 @@ def likegrid(chains, params=None,
                     ax.set_xticklabels([])
                     
     if labels is not None:
-        fig.legend([Line2D([0],[0],c=c,lw=2) for c in colors],labels,fancybox=True,shadow=True,loc=legend_loc)
+        fig.legend([Line2D([0],[0],c=c,lw=2) for c in colors],labels,fancybox=True,shadow=False,loc=legend_loc)
 
 
 from collections import Iterable
@@ -656,7 +657,7 @@ def likegrid1d(chains,
         ax.xaxis.set_major_formatter(ScalarFormatter(useOffset=False))
 
     if labels is not None:
-        fig.legend([Line2D([0],[0],c=c,linewidth=2) for c in colors],labels,fancybox=True,shadow=True,
+        fig.legend([Line2D([0],[0],c=c,linewidth=3) for c in colors],labels,fancybox=True,shadow=False,
                    loc=legend_loc if legend_loc is not None else (0,1-1./nrow))
         
         
@@ -744,3 +745,42 @@ def is_iter(x):
         return True
     except: 
         return False
+
+
+def combine_covs(*covs):
+    """
+    Combines a bunch of covariances into a single array. If a parameter appears
+    in multiple covariances, the covariance appearing last in the list is used. 
+    
+    Each cov can be:
+        * tuple of ([names...], 2-d array)
+        * filename (file's first line is "#paramname1 paramname2 ..." and next lines are array)
+        * `Chain` object (will call its cov() function)
+        * {k:std(v)...}
+    
+    Returns:
+        Tuple of ([names...], 2-d array)
+    """
+    def to_array(cov):
+        if isinstance(cov,tuple): 
+            return cov
+        elif isinstance(cov,str):
+            with open(cov) as f:
+                return re.sub("#","",f.readline()).split(), loadtxt(f)
+        elif isinstance(cov,Chain):
+            return cov.params(), cov.cov()
+        elif isinstance(cov,dict):
+            return [k for k in cov], diag([v**2 for v in cov.values()])
+        else:
+            raise ValueError("Unrecognized covariance data type.")
+        
+    covs = [to_array(cov) for cov in covs]
+    allnames = list(chain(*[n for n,_ in covs]))
+    
+    allcov = zeros((len(allnames),len(allnames)))
+    for (names,cov) in covs:
+        idxs = [allnames.index(n) for n in names]
+        for i in idxs: allcov[i,:] = allcov[:,i] = 0
+        allcov[ix_(idxs,idxs)] = cov
+    
+    return allnames, allcov
