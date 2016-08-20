@@ -45,7 +45,7 @@ def main():
         
     elif args.script:
         parser, script = load_script(args.script)
-        for _ in Slik(script(**vars(parser.parse_args(args.script_args)))): pass
+        for _ in Slik(script(**vars(parser.parse_args(args.script_args)))).sample(): pass
 
 
 
