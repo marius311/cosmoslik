@@ -1,31 +1,33 @@
 #!/usr/bin/env python
 
-import sys, os, cosmoslik as K, traceback, argparse
+import sys, os, traceback, argparse
+from cosmoslik import get_plugin, get_all_plugins, load_script, Slik
 
-parser = argparse.ArgumentParser(prog='cosmoslik.py')
-parser.add_argument('script.py',nargs='?',help='a chain script to run')
-parser.add_argument('--args',nargs='*',metavar='<args>',help='arguments to pass to the script')
-parser.add_argument('--list',action='store_true',default=False,help='list available modules')
-parser.add_argument('--doc',nargs=1,metavar='<module>',help='print the documentation for a module')
-parser.add_argument('--html_doc',nargs=1,metavar='<module>',help='open the documentation for a module in a web-browser')
-parser.add_argument('-n',nargs=1,metavar='<# of chains>',default=False,help='run multiple chains with MPI')
+parser = argparse.ArgumentParser(prog='python -m cosmoslik')
+parser.add_argument('-n',type=int,default=False,help='run multiple chains with MPI')
 parser.add_argument('--traceback',action='store_true',default=False,help='print out tracebacks on error messages')
+group = parser.add_mutually_exclusive_group()
+group.add_argument('--list',action='store_true',default=False,help='list available modules')
+group.add_argument('--doc',nargs=1,metavar='<module>',help='print the documentation for a module')
+group.add_argument('--html_doc',nargs=1,metavar='<module>',help='open the documentation for a module in a web-browser')
+group.add_argument('script',metavar="script.py",nargs='?',help='a script to run a chain from')
+parser.add_argument('script_args', nargs=argparse.REMAINDER, metavar="...", help='arguments to pass to script')
 
-def main(args):
+def main():
 
-    if args['list']:
+    if args.list:
         print "Found the following modules in 'cosmoslik_plugins':"
-        for name in sorted(K.get_all_plugins().values()):
+        for name in sorted(get_all_plugins().values()):
             print '  %s'%'.'.join(name.split('.')[1:])
         print "See 'cosmoslik.py --doc <module>' for more information on a given module."
         print "Some modules may need to be compiled before appearing in this list."
         
-    elif args['doc'] or args['html_doc']:
+    elif args.doc or args.html_doc:
         from textwrap import dedent
-        plugin_name = (args['doc'] or args['html_doc'])[0]
-        plugin = K.get_plugin(plugin_name) 
+        plugin_name = (args.doc or args.html_doc)[0]
+        plugin = get_plugin(plugin_name) 
         doc = plugin.__doc__ or ""
-        if args['doc']:
+        if args.doc:
             print "Documentation for module '%s':"%plugin_name
             print dedent(doc)
         else:
@@ -36,37 +38,34 @@ def main(args):
             with open(tmpfile,'w') as f: f.write(publish_string(dedent(doc),writer_name='html'))
             webbrowser.open(tmpfile)
 
-    elif args['n']:
+    elif args.n:
         i = sys.argv.index('-n')
         sys.argv.pop(i); sys.argv.pop(i)
-        os.system("mpiexec -n %i %s -m cosmoslik %s"%(int(args['n'][0]),sys.executable,' '.join(sys.argv[1:])))
+        os.system("mpiexec -n %i %s -m cosmoslik %s"%(args.n,sys.executable,' '.join(sys.argv[1:])))
         
-    elif args['script.py']:
-        from cosmoslik import load_script
-        def try_eval(x):
-            try: return eval(x)
-            except: return x
-        p = load_script(args['script.py'], *(map(try_eval,args['args'] or [])))
-        for _ in p.sample(): pass
+    elif args.script:
+        parser, script = load_script(args.script)
+        for _ in Slik(script(**vars(parser.parse_args(args.script_args)))): pass
 
 
 
 if not sys.argv[1:]: parser.print_help()
 else:
-    
-    args = vars(parser.parse_args())
+    args = parser.parse_args()
     try:
-        main(args)
+        main()
     except BaseException as e:
-        if args['traceback']: 
-            traceback.print_exception(type(e), e, sys.exc_info()[2], None, sys.stderr)
+        if isinstance(e,(Exception,KeyboardInterrupt)):
+            if args.traceback: 
+                traceback.print_exception(type(e), e, sys.exc_info()[2], None, sys.stderr)
+            else:
+                sys.stderr.write('\033[91m')
+                traceback.print_exception(type(e), e, None, None, sys.stderr)
+                sys.stderr.write('\033[0m')
+                print "Run CosmoSlik with --traceback for more info."
+            sys.exit(1)
         else:
-            sys.stderr.write('\033[91m')
-            traceback.print_exception(type(e), e, None, None, sys.stderr)
-            sys.stderr.write('\033[0m')
-            print "Run CosmoSlik with --traceback for more info."
-            
-        sys.exit(1)
+            raise
 
     
     

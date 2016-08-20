@@ -3,6 +3,8 @@ import copy, pkgutil, inspect, sys, os
 from numpy import inf, nan, hstack, transpose
 import imp, hashlib, time
 from subprocess_plugins import SubprocessExtension, subprocess_class
+import inspect
+import argparse
 
 __all__ = ['load_script','Slik','SlikFunction',
            'SlikDict','SlikPlugin','SlikSampler','param','param_shortcut',
@@ -15,29 +17,57 @@ sys.modules[datafile_module]=imp.new_module(datafile_module)
 
 
 
-def load_script(scriptfile,*args,**kwargs):   
+def load_script(script):   
     """ 
-    Read a CosmoSlik script. 
-    Passes *args and **kwargs to the script's __init__.
-    """ 
-    script_module = hashlib.md5(os.path.abspath(scriptfile) + time.ctime()).hexdigest()
-    modname='%s.%s'%(datafile_module,script_module)
-    mod = imp.load_source(modname,scriptfile)
-    sys.modules[modname]=mod
+    Read a CosmoSlik script.
+    """
+    if isinstance(script,str):
+        script_module = hashlib.md5(os.path.abspath(script) + time.ctime()).hexdigest()
+        modname='%s.%s'%(datafile_module,script_module)
+        mod = imp.load_source(modname,script)
+        sys.modules[modname]=mod
+        
+        plugins = [v for k,v in vars(mod).items() if (isinstance(v,type) and 
+                                                      issubclass(v,SlikPlugin) and 
+                                                      v!=SlikPlugin)]
+        mains = [v for v in plugins if hasattr(v,'_slik_main')]
+        
+        if len(mains)>=2: raise ValueError("Multiple SlikPlugins in '%s' are marked with @SlikMain. CosmoSlike doesn't know which one to run."%script)
+        elif len(mains)==1: main=mains[0]
+        elif len(plugins)>=2: raise ValueError("Multiple SlikPlugins were found in '%s' but none are marked with @SlikMain. CosmoSlik doesn't know which one to run."%script)
+        elif len(plugins)==1: main=plugins[0]
+        else: raise ValueError("No SlikPlugins were found in '%s'"%script)
+    elif issubclass(script,SlikPlugin):
+        main = script
+    else:
+        raise ValueError("`script` argument should be filename or SlikPlugin class")
     
-    plugins = [v for k,v in vars(mod).items() if (isinstance(v,type) and 
-                                                  issubclass(v,SlikPlugin) and 
-                                                  v!=SlikPlugin)]
-    mains = [v for v in plugins if hasattr(v,'_slik_main')]
+    argspec = inspect.getargspec(main.__init__)
+    class NoDefault: pass
+    parser = argparse.ArgumentParser(prog="python -m cosmoslik %s"%script)
+    args = argspec.args[1:]
+    defaults = [NoDefault]*(len(args) - len(argspec.defaults)) + list(argspec.defaults or [])
+    for name, default in zip(args,defaults):
+        if default == NoDefault:
+            parser.add_argument(name)
+        else:
+            if default is True:
+                parser.add_argument("--no-"+name, dest=name, action="store_false")
+            elif default is False:
+                parser.add_argument("--"+name, action="store_true")
+            elif isinstance(default,list):
+                parser.add_argument("--"+name, default=default, nargs=('+' if len(default)>0 else '*'), 
+                                    type=(type(default[0]) if len(default)>0 else None))
+            else:
+                parser.add_argument("--"+name, default=default, type=type(default))
+                
     
-    if len(mains)>=2: raise ValueError("Multiple SlikPlugins in '%s' are marked with @SlikMain. CosmoSlike doesn't know which one to run."%scriptfile)
-    elif len(mains)==1: main=mains[0]
-    elif len(plugins)>=2: raise ValueError("Multiple SlikPlugins were found in '%s' but none are marked with @SlikMain. CosmoSlik doesn't know which one to run."%scriptfile)
-    elif len(plugins)==1: main=plugins[0]
-    else: raise ValueError("No SlikPlugins were found in '%s'"%scriptfile)
+    return parser, main
+    # return Slik(main(*args,**kwargs))
     
-    return Slik(main(*args,**kwargs))
-
+    
+    
+    
 
 
 class Slik(object):
@@ -339,4 +369,3 @@ def all_kw(ls,exclusions=None):
               + (exclusions if exclusions is not None else [])):
         ls.pop(k,None)
     return ls
-
