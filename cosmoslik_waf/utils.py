@@ -1,4 +1,4 @@
-import os.path as osp, numpy
+import os.path as osp
 from waflib.Utils import to_list
 
 def to_nodes(ctx,sth):
@@ -49,7 +49,7 @@ def build_f2py(bld, source, module_name, extra_sources, skip=None, only=None, sy
         target='{MODULENAME}module.c {MODULENAME}-f2pywrappers2.f90'.format(MODULENAME=module_name))
 
     #copy over f2py files fortranobject.c and fortranobject.h
-    import numpy.f2py.cfuncs as cfuncs
+    import numpy, numpy.f2py.cfuncs as cfuncs
     f2pydir = osp.join(osp.dirname(osp.abspath(cfuncs.__file__)),'src')
     for x in 'ch':
         bld(rule='cp -L ${SRC} ${TGT}',
@@ -86,4 +86,3 @@ def config_f2py(conf):
     
 def opt_f2py(opt):
     opt.load('compiler_c compiler_fc python')
-

@@ -1,3 +1,3 @@
 #! /usr/bin/env python
 
-from cosmoslik.waf.wscript import *
+from cosmoslik_waf.wscript import *
