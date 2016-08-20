@@ -57,9 +57,10 @@ def load_script(script):
                 parser.add_argument("--"+name, action="store_true")
             elif isinstance(default,list):
                 parser.add_argument("--"+name, default=default, nargs=('+' if len(default)>0 else '*'), 
-                                    type=(type(default[0]) if len(default)>0 else None))
+                                    type=(type(default[0]) if len(default)>0 else None),
+                                    help="default: "+str(default))
             else:
-                parser.add_argument("--"+name, default=default, type=type(default))
+                parser.add_argument("--"+name, default=default, type=type(default), help="default: "+str(default))
                 
     
     return parser, main
