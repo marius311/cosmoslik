@@ -3,7 +3,7 @@
 import sys, os, traceback, argparse
 from .cosmoslik import get_plugin, get_all_plugins, load_script, Slik
 
-parser = argparse.ArgumentParser(prog='python -m cosmoslik')
+parser = argparse.ArgumentParser(prog='cosmoslik')
 parser.add_argument('-n',type=int,default=False,help='run multiple chains with MPI')
 parser.add_argument('--traceback',action='store_true',default=False,help='print out tracebacks on error messages')
 group = parser.add_mutually_exclusive_group()

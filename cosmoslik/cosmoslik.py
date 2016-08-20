@@ -46,7 +46,7 @@ def load_script(script):
     
     argspec = inspect.getargspec(main.__init__)
     class NoDefault: pass
-    parser = argparse.ArgumentParser(prog="python -m cosmoslik %s"%script)
+    parser = argparse.ArgumentParser(prog="cosmoslik %s"%script)
     args = argspec.args[1:]
     defaults = [NoDefault]*(len(args) - len(argspec.defaults or [])) + list(argspec.defaults or [])
     for name, default in zip(args,defaults):
