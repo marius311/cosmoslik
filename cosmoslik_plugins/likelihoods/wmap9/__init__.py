@@ -1,2 +1,2 @@
-from wmap9 import wmap9
+from .wmap9 import wmap9
 

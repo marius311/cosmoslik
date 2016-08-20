@@ -1,2 +1,2 @@
-from wmap import wmap
+from .wmap import wmap
 

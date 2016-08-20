@@ -1,6 +1,6 @@
 import os.path as osp, numpy
 from waflib.Utils import to_list
-from utils import to_nodes
+from .utils import to_nodes
 
 
 def build_f2py(bld, source, module_name, extra_sources, skip=None, only=None, symlink=False, **kwargs):

@@ -1,2 +1,2 @@
-from cosmoslik import *
-import utils
+from .cosmoslik import *
+from . import utils

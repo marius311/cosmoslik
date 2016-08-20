@@ -1,1 +1,1 @@
-from spt_lowl import spt_lowl
+from .spt_lowl import spt_lowl

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import sys, os, traceback, argparse
-from cosmoslik import get_plugin, get_all_plugins, load_script, Slik
+from .cosmoslik import get_plugin, get_all_plugins, load_script, Slik
 
 parser = argparse.ArgumentParser(prog='python -m cosmoslik')
 parser.add_argument('-n',type=int,default=False,help='run multiple chains with MPI')
@@ -16,11 +16,11 @@ parser.add_argument('script_args', nargs=argparse.REMAINDER, metavar="...", help
 def main():
 
     if args.list:
-        print "Found the following modules in 'cosmoslik_plugins':"
+        print("Found the following modules in 'cosmoslik_plugins':")
         for name in sorted(get_all_plugins().values()):
-            print '  %s'%'.'.join(name.split('.')[1:])
-        print "See 'cosmoslik.py --doc <module>' for more information on a given module."
-        print "Some modules may need to be compiled before appearing in this list."
+            print('  %s'%'.'.join(name.split('.')[1:]))
+        print("See 'cosmoslik.py --doc <module>' for more information on a given module.")
+        print("Some modules may need to be compiled before appearing in this list.")
         
     elif args.doc or args.html_doc:
         from textwrap import dedent
@@ -28,8 +28,8 @@ def main():
         plugin = get_plugin(plugin_name) 
         doc = plugin.__doc__ or ""
         if args.doc:
-            print "Documentation for module '%s':"%plugin_name
-            print dedent(doc)
+            print("Documentation for module '%s':"%plugin_name)
+            print(dedent(doc))
         else:
             from docutils.core import publish_string
             from tempfile import mktemp
@@ -62,7 +62,7 @@ else:
                 sys.stderr.write('\033[91m')
                 traceback.print_exception(type(e), e, None, None, sys.stderr)
                 sys.stderr.write('\033[0m')
-                print "Run CosmoSlik with --traceback for more info."
+                print("Run CosmoSlik with --traceback for more info.")
             sys.exit(1)
         else:
             raise

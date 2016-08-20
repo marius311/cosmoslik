@@ -46,5 +46,5 @@ def cosmo_latex(prefix=''):
              'omch2':r'$\Omega_ch^2$',
              'tau':r'$\tau$',
              'theta':r'$\theta$'}
-    return {prefix+k:v for k,v in latex.items()}
+    return {prefix+k:v for k,v in list(latex.items())}
 

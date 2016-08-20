@@ -1,4 +1,4 @@
-from cStringIO import StringIO
+from io import StringIO
 from scipy.interpolate import bisplev, bisplrep
 from numpy import loadtxt
 from cosmoslik import SlikPlugin

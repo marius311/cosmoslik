@@ -1,4 +1,4 @@
-from egfs import egfs
+from .egfs import egfs
 from numpy import arange
 
 class clust_poisson_egfs(egfs):

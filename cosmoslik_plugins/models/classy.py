@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+
 from cosmoslik import SlikPlugin
 from numpy import arange, pi
 
@@ -64,7 +64,7 @@ class classy(SlikPlugin):
         self.model.set(output='tCl, lCl, pCl',
                        lensing='yes',
                        l_max_scalars=l_max_scalar,
-                       **{self.name_mapping[k]:v for k,v in locals().items() 
+                       **{self.name_mapping[k]:v for k,v in list(locals().items()) 
                           if k in self.name_mapping and v is not None})
         self.model.compute()
 

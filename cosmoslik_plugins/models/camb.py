@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+
 from cosmoslik import SlikPlugin
 
 name_mapping = {}
@@ -14,8 +14,8 @@ class camb(SlikPlugin):
     def __call__(self,
                  **params):
         
-        params = {name_mapping.get(k,k):v for k,v in params.items()}
+        params = {name_mapping.get(k,k):v for k,v in list(params.items())}
         cp = self._camb.set_params(**params)
         self.result = self._camb.get_results(cp)
-        return dict(zip(['cl_%s'%x for x in ['TT','EE','BB','TE']],
-                        (cp.TCMB*1e6)**2*self.result.get_cmb_power_spectra(spectra=['total'])['total'].T))
+        return dict(list(zip(['cl_%s'%x for x in ['TT','EE','BB','TE']],
+                        (cp.TCMB*1e6)**2*self.result.get_cmb_power_spectra(spectra=['total'])['total'].T)))

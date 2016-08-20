@@ -2,14 +2,14 @@
 
 CosmoSlik is a <b>Cosmo</b>logy <b>S</b>ampler of <b>Lik</b>elihoods. 
 
-CosmoSlik is a simple but powerful way to quickly code up, run, and analyze a cosmology MCMC chain which can involve things like [CAMB](http://www.camb.info), [Class](http://www.class-code.net), the Planck likelihood, other cosmological likelihoods, your own customizations, etc... It has advantages in ease-of-use, flexibility, and modularity as compared to similar codes like [CosmoMC](), [MontePython](), or [CosmoSIS](). 
+CosmoSlik is a simple but powerful way to quickly code up, run, and analyze a cosmology MCMC chain which can involve things like [CAMB](http://www.camb.info), [Class](http://www.class-code.net), the Planck likelihood, other cosmological likelihoods, your own customizations, etc... It has advantages in ease-of-use, flexibility, and modularity as compared to similar codes like [CosmoMC](http://cosmologist.info/cosmomc/), [MontePython](https://github.com/baudren/montepython_public), or [CosmoSIS](https://bitbucket.org/joezuntz/cosmosis/wiki/Demo1). 
 
 
 ## Quickstart
 
 ### Basic Examples
 
-To create a *CosmoSlik script* which runs a chain, you start with the following boilerplate code, which you should put in some file, e.g. `myscipt.py`,
+To create a CosmoSlik *script* which runs a chain, you start with the following boilerplate code, which you should put in some file, e.g. `myscipt.py`,
 
 ```python
 from cosmoslik import *
@@ -23,7 +23,7 @@ class myscript(SlikPlugin):
         # return negative log-likelihood here
 ```
 
-This script is like the "ini" file other similar tools use to define a particular chain, but is of course much more flexible because its just Python code which can do arbitrarily complex things. 
+This script is like the "ini" file other similar tools use to define a particular chain, but is much more flexible because its just Python code which can do arbitrarily complex things. 
 
 Lets code up a simple example likelihood that samples a 2D unit Gaussian. In the initialization section we define the parameters to be sampled by the MCMC chain, and in the likelihood section we use these parameters to return a likelihood (by convention CosmoSlik wants the negative log-likelihood). Finally, we set which MCMC sampler to use. The new script looks like this:
 
@@ -35,8 +35,12 @@ class myscript(SlikPlugin):
         super(SlikPlugin,self).__init__()
         self.a = param(start=0, scale=1)
         self.b = param(start=0, scale=1)
-        self.sampler = get_plugin("samplers.metropolis_hastings")(self,num_samples=1000, output_file="myscript.chain")
-        
+        self.sampler = get_plugin("samplers.metropolis_hastings")(
+            self,
+            num_samples=1e5, 
+            output_file="myscript.chain",
+        )
+
     def __call__(self):
         return (self.a**2 + self.b**2)/2
 ```
@@ -48,7 +52,7 @@ You can now immediately run this chain from the command line by doing,
 $ python -m cosmoslik -n 8 myscript.py
 ```
 
-The `-n 8` option runs 8 chains in parallel with MPI (you will need `mpi4py` installed) and automatically updates the proposal covariance. The resulting 8 chains are all written to the single file specified in the script, in our case `myscript.chain`. It is safe to read the file while the chain is in progess, and you can do so with,
+The `-n 8` option runs 8 chains in parallel with MPI (you will need `mpi4py` installed) and automatically updates the proposal covariance. The resulting 8 chains are all written to the single file specified in the script, in our case `myscript.chain`. You can read the chain file (even while the chain is running to see its progress) via:
 
 ```python
 >>> chain = load_chain("myscript.chain")
@@ -75,16 +79,21 @@ from cosmoslik import *
 
 class myscript(SlikPlugin):
     def __init__(self, ndim, num_samples=1000):
-        super(SlikPlugin,self).__init__(ndim=ndim)
+        super(SlikPlugin,self).__init__()
+        ndim = self.ndim = int(ndim)
         for i in range(ndim):
             self["param%i"%i] = param(start=0, scale=1)
-        self.sampler = get_plugin("samplers.metropolis_hastings")(self, num_samples=num_samples, output_file="myscript_ndim_%i.chain"%ndim)
+        self.sampler = get_plugin("samplers.metropolis_hastings")(
+            self, 
+            num_samples=num_samples, 
+            output_file="myscript_ndim_%i.chain"%ndim
+        )
         
     def __call__(self):
         return sum([self["param%i"%i]**2 for i in range(self.ndim)])/2
 ```
 
-A number of things are on display here:
+In this example we've done a number of new things:
 
 * Giving the `__init__` function parameters, in this case the required `ndim` and the optional `num_samples` (which is then passed to the sampler).
 * Defining sampled parameters dynamically from a `for` loop.
@@ -147,7 +156,7 @@ class planck(SlikPlugin):
             self,
             num_samples = 1e7,
             output_file = 'planck.chain',
-       )
+        )
 
 
     def __call__(self):
@@ -165,7 +174,7 @@ class planck(SlikPlugin):
 
 Some new things here are:
 
-* "Attaching" sampled parameters not directly to `self` but to a sub-attribute, in this case, `self.cosmo`. CosmoSlik will find all sampled parameters if they are attached to any `SlikDict`s attached to `self` (recursively, any number of `SlikDict`s deep). 
+* "Attaching" sampled parameters not directly to `self` but to a sub-attribute, in this case, `self.cosmo`. CosmoSlik will find all sampled parameters if they are attached to any `SlikDict`s attached to `self` (recursively, any number of `SlikDict`s deep). You can use this to organize parameters into convenient subgroups. 
 * Using the `get_plugin` function, which returns one of the many CosmoSlik plugins, e.g. the one which wraps CAMB, or which loads Planck `clik` files and uses them to evaluate the likelihood. 
 * Using the `likelihoods.priors` plugin which reads through sampled parameters and imposes priors, for example the one specified by `gaussian_prior=(1,0.0025)`. 
 * Using the `lsum` function. This is a convenience function which simply sums up its arguments in order, but as soon as one of them returns `inf`, it doesn't waste time evaluating the rest. 

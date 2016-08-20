@@ -1,7 +1,8 @@
 import os, socket
 from multiprocessing import Process, Pipe
 from threading import Thread
-import cPickle as pickle
+import pickle as pickle
+import collections
 
 """
 Provides some utilities for automatically running SlikPlugins in a subprocess.
@@ -231,7 +232,7 @@ class SubprocessClassHandler(object):
                 try:
                     request = conn.recv()
                     if isinstance(request,str):
-                        if (request not in self.force_attr and callable(getattr(obj,request))):
+                        if (request not in self.force_attr and isinstance(getattr(obj,request), collections.Callable)):
                             #getting a function
                             conn.send(SubprocessBoundMethod(request))
                         else:
@@ -257,7 +258,7 @@ class SubprocessClassHandler(object):
             def recv(self):
                 return serializer.load(self.conn.recv())
 
-        self._conn, conn_child = map(wrap_conn,Pipe())
+        self._conn, conn_child = list(map(wrap_conn,Pipe()))
         out_socket_parent, out_socket_child = socket.socketpair()
         out_socket_parent.settimeout(0)
         self._subproc_stdout = out_socket_parent.makefile()
@@ -309,8 +310,8 @@ def SubprocessExtension(module_name,globals):
         X = SubprocessExtension('X',globals())
     """
     if no_subproc:
-        exec ('from %s import %s \n'
-              'mod = %s')%(module_name,module_name,module_name) in globals, locals()
+        exec(('from %s import %s \n'
+              'mod = %s')%(module_name,module_name,module_name), globals, locals())
         return mod
     else:
         return _SubprocessExtension(module_name,globals)
@@ -342,15 +343,15 @@ class _SubprocessExtension(object):
             try:
                 #redirect output to a pipe back to the main process
                 for s in [1,2]: os.dup2(fd_out,s)
-                exec ('from %s import %s \n'
-                      'mod = %s')%(module_name,module_name,module_name) in globals, locals()
-                attrs = {k:(getattr(v,'__doc__',None),callable(v)) for k,v in vars(mod).items()}
+                exec(('from %s import %s \n'
+                      'mod = %s')%(module_name,module_name,module_name), globals, locals())
+                attrs = {k:(getattr(v,'__doc__',None),isinstance(v, collections.Callable)) for k,v in list(vars(mod).items())}
                 conn.send(attrs)
                 while True:
                     (attr, args, kwargs) = conn.recv()
                     if attr in attrs and attrs[attr][1]: conn.send(getattr(mod,attr)(*args, **kwargs))
                     else: conn.send(getattr(mod,attr))
-            except Exception, e: 
+            except Exception as e: 
                 conn.send(e)
                 raise
                 return

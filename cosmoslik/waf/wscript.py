@@ -6,8 +6,8 @@ VERSION = '0.1'
 import sys, os.path as osp, os
 from waflib.Utils import to_list
 from waflib.Configure import conf
-from ConfigParser import RawConfigParser
-from cStringIO import StringIO
+from configparser import RawConfigParser
+from io import StringIO
 from setuptools.command import easy_install
 
 #def dist(ctx):
@@ -80,7 +80,7 @@ def configure(conf):
     conf.check_python_version((2,7))
     conf.check_python_module('numpy','ver >= num(1,5)')
 
-    for k,v in conf.environ.items():
+    for k,v in list(conf.environ.items()):
         if any(k.startswith(p) for p in ['LIB','LIBPATH','LINKFLAGS','CFLAGS','FCFLAGS']): 
             conf.env.append_value(k, to_list(conf.environ[k]))
 
@@ -96,18 +96,18 @@ def configure(conf):
         
     if len(success)>0:
         sys.stdout.write('\033[1m')
-        print "The following plugins are ready to build:"
+        print("The following plugins are ready to build:")
         sys.stdout.write('\033[92m')
-        for f in success: print "  "+f.path_from(conf.srcnode.find_node("cosmoslik_plugins/"))
+        for f in success: print("  "+f.path_from(conf.srcnode.find_node("cosmoslik_plugins/")))
         sys.stdout.write('\033[0m')
     if len(fail)>0:
         sys.stdout.write('\033[1m')
-        print "The following plugins can't be built (ignore if not needed):"
+        print("The following plugins can't be built (ignore if not needed):")
         sys.stdout.write('\033[93m')
-        for f in fail: print "  "+f.path_from(conf.srcnode.find_node("cosmoslik_plugins/"))
+        for f in fail: print("  "+f.path_from(conf.srcnode.find_node("cosmoslik_plugins/")))
         sys.stdout.write('\033[0m')
-        print "Run './waf configure --plugin PLUGIN' to see why a given plugin can't build."
-        print "where PLUGIN is exactly as it appears above."
+        print("Run './waf configure --plugin PLUGIN' to see why a given plugin can't build.")
+        print("where PLUGIN is exactly as it appears above.")
 
     conf.env.configured_plugins = [f.path_from(conf.srcnode) for f in success]
 

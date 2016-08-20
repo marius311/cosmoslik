@@ -1,7 +1,7 @@
 from cosmoslik import SlikPlugin, param
 from numpy import *
 from scipy.linalg import cho_factor, cho_solve, inv
-import cPickle
+import pickle
 
 class camspec_slik(SlikPlugin):
     
@@ -35,7 +35,7 @@ class camspec_slik(SlikPlugin):
                                                   self.out_lrange)
                              if r])
         
-        with open(like_file,'r') as f: self.x, cv = cPickle.load(f)
+        with open(like_file,'r') as f: self.x, cv = pickle.load(f)
         if dx is not None: self.x += dx
         todl = self.ells*(self.ells+1)
         self.x *= todl
@@ -65,7 +65,7 @@ class camspec_slik(SlikPlugin):
         fig.set_size_inches(6,4*6/1.6)
         
         sl=array(cumsum([0]+self.nl))[:-1]
-        ses=array(zip(sl,sl+self.nl)) + (array(self.out_lrange) - self.in_lrange)
+        ses=array(list(zip(sl,sl+self.nl))) + (array(self.out_lrange) - self.in_lrange)
         def bin(x,auto2d=True):
             bx = array([x[i:i+bindl].mean(axis=0) for i in arange(0,x.shape[0],bindl)[:-1]])
             if auto2d and x.ndim==2: return bin(bx.T,auto2d=False).T

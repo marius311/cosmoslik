@@ -17,10 +17,11 @@ from numpy import *
 from numpy.linalg import inv
 from itertools import takewhile, chain
 from collections import defaultdict
-import cPickle
+import pickle
 from functools import partial
 from multiprocessing.pool import Pool
 from numbers import Number
+from functools import reduce
 
 
 __all__ = ['Chain','Chains',
@@ -35,12 +36,12 @@ class Chain(dict):
     """
     def __init__(self,*args,**kwargs):
         super(Chain,self).__init__(*args,**kwargs)
-        for k,v in self.items(): self[k]=atleast_1d(v)
-        if self and 'weight' not in self: self['weight']=ones(len(self.values()[0]))
+        for k,v in list(self.items()): self[k]=atleast_1d(v)
+        if self and 'weight' not in self: self['weight']=ones(len(list(self.values())[0]))
         
     def copy(self):
         """Deep copy the chain so post-processing, etc... works right"""
-        return Chain({k:v.copy() for k,v in self.iteritems()})
+        return Chain({k:v.copy() for k,v in self.items()})
         
     def params(self,non_numeric=False): 
         """
@@ -48,18 +49,18 @@ class Chain(dict):
         Args:
             numeric: whether to include non-numeric parameters (default: False)
         """
-        return (set([k for k,v in self.items() if 
+        return (set([k for k,v in list(self.items()) if 
                     (not k.startswith('_') and (non_numeric or (v.ndim==1 and issubclass(v.dtype.type,Number))))])
                 -set(["lnl","weight"]))
     
     def sample(self,s,keys=None): 
         """Return a sample or a range of samples depending on if s is an integer or a slice object."""
-        return Chain((k,self[k][s]) for k in (keys if keys else self.keys()))
+        return Chain((k,self[k][s]) for k in (keys if keys else list(self.keys())))
 
     def iterrows(self):
         """Iterate over the samples in this chain."""
         for i in range(self.length()):
-            yield {k:v[i] for k,v in self.items()}
+            yield {k:v[i] for k,v in list(self.items())}
 
     def matrix(self,params=None):
         """Return this chain as an nsamp * nparams matrix."""
@@ -139,7 +140,7 @@ class Chain(dict):
             if pool is None and _pool is not None: _pool.terminate()
 
         c=self.copy()
-        allkeys = set(chain(*[d.keys() for d in dat]))
+        allkeys = set(chain(*[list(d.keys()) for d in dat]))
         c.update({k:array([d.get(k,nan) for d in dat]) for k in allkeys})
         return c
 
@@ -199,7 +200,7 @@ class Chain(dict):
 
     def best_fit(self):
         """Get the best fit sample."""
-        return {k:v[0] for k,v in self.sample(self['lnl'].argmin()).items()}
+        return {k:v[0] for k,v in list(self.sample(self['lnl'].argmin()).items())}
         
     def thin(self,delta):
         """Take every delta non-unique samples."""
@@ -291,7 +292,7 @@ class Chains(list):
     
     def join(self): 
         """Combine the chains into one."""
-        return Chain((k,concatenate([c[k] for c in self])) for k in self[0].keys())
+        return Chain((k,concatenate([c[k] for c in self])) for k in list(self[0].keys()))
     
     def plot(self,param=None,fig=None,**kwargs): 
         """Plot the value of a parameter as a function of sample number for each chain."""
@@ -726,7 +727,7 @@ def load_chain(path,paramnames=None):
                     with open(path) as f:
                         if names==None: names = re.sub("#","",f.readline()).split()
                         data = loadtxt(f).T
-                    return Chain(zip(names,data))
+                    return Chain(list(zip(names,data)))
                 except: 
                     return None
                     
@@ -735,7 +736,7 @@ def load_chain(path,paramnames=None):
         dir = os.path.dirname(path)
         files = [os.path.join(dir,f) for f in os.listdir('.' if dir=='' else dir) if re.match(os.path.basename(path)+'_[0-9]+',f) or f==os.path.basename(path)]
         if len(files)==1: return load_one_chain(files[0])
-        elif len(files)>1: return Chains(filter(lambda c: c, (load_one_chain(f) for f in files)))
+        elif len(files)>1: return Chains([c for c in (load_one_chain(f) for f in files) if c])
         else: raise IOError("File not found: "+path) 
 
 
@@ -770,7 +771,7 @@ def combine_covs(*covs):
         elif isinstance(cov,Chain):
             return cov.params(), cov.cov()
         elif isinstance(cov,dict):
-            return [k for k in cov], diag([v**2 for v in cov.values()])
+            return [k for k in cov], diag([v**2 for v in list(cov.values())])
         else:
             raise ValueError("Unrecognized covariance data type.")
         

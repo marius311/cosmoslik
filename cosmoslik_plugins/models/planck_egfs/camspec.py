@@ -35,10 +35,10 @@ class camspec(egfs):
         
         freqs = tuple(fr if isinstance(fr,dict) else {'tsz':fr} for fr in freqs)
         
-        frlbl = tuple([n for n,(l,u) in {100:(80,120),
+        frlbl = tuple([n for n,(l,u) in list({100:(80,120),
                                          143:(130,160), 
-                                         217:(200,240)}.items() 
-                       if l<mean(fr.values())<u][0] for fr in freqs)
+                                         217:(200,240)}.items()) 
+                       if l<mean(list(fr.values()))<u][0] for fr in freqs)
         
         comps={}
         
@@ -66,6 +66,6 @@ class camspec(egfs):
         
 def tszdep(fr1,fr2,fr0):
     """The tSZ frequency dependence."""
-    t1,t2,t0 = map(lambda fr: (lambda x0: x0*(exp(x0)+1)/(exp(x0)-1) - 4)(fr/56.78),[fr1,fr2,fr0])
+    t1,t2,t0 = [(lambda x0: x0*(exp(x0)+1)/(exp(x0)-1) - 4)(fr/56.78) for fr in [fr1,fr2,fr0]]
     return t1*t2/t0**2
         

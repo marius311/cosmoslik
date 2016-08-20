@@ -45,15 +45,15 @@ def mpi_map(function,sequence,distribute=True):
     sequence = mpi_consistent(sequence)
 
     if (size==1):
-        return map(function,sequence)
+        return list(map(function,sequence))
     else:
         if (distribute):
-            return flatten(comm.allgather(map(function, partition(sequence,size)[rank])))
+            return flatten(comm.allgather(list(map(function, partition(sequence,size)[rank]))))
         else:
             if (rank==0):
-                return flatten(comm.gather(map(function, partition(sequence,size)[rank])))
+                return flatten(comm.gather(list(map(function, partition(sequence,size)[rank]))))
             else:
-                comm.gather(map(function, partition(sequence,size)[rank]))
+                comm.gather(list(map(function, partition(sequence,size)[rank])))
                 return []
 
 def flatten(l):

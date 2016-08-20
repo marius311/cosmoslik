@@ -4,7 +4,7 @@ import cosmoslik.mpi as mpi
 import re, time
 from itertools import product, chain
 from hashlib import md5
-import cPickle
+import pickle
 from collections import defaultdict, OrderedDict
 from cosmoslik import SlikSampler, SlikFunction, param, all_kw
 from cosmoslik.chains.chains import Chain, Chains, combine_covs
@@ -24,16 +24,16 @@ def load_chain(filename):
     """
     Load a chain produced by the CosmoSlik metropolis_hastings sampler. 
     """
-    c = cPickle.load(open(filename,'rb'))
-    if isinstance(c,(Chain,Chains)): return c
-    elif isinstance(c,tuple): return _load_chain_old(filename)
-    else:
-        with open(filename) as f:
-            names = cPickle.load(f)
+    with open(filename, 'rb') as f:
+        c = pickle.load(f)
+        if isinstance(c,(Chain,Chains)): return c
+        elif isinstance(c,tuple): return _load_chain_old(filename)
+        else:
+            names = c
             dat = []
             while True:
                 try:
-                    dat.append(cPickle.load(f))
+                    dat.append(pickle.load(f))
                 except:
                     break
             ii=set(i for i,_ in dat)
@@ -41,7 +41,7 @@ def load_chain(filename):
             if dat[0][1].dtype.kind=='V':
                 return Chains([Chain({n:concatenate([d['f%i'%k] for j,d in dat if i==j]) for k,n in enumerate(names)}) for i in ii])
             else:
-                return Chains([Chain(dict(zip(names,vstack([d for j,d in dat if i==j]).T))) for i in ii])
+                return Chains([Chain(dict(list(zip(names,vstack([d for j,d in dat if i==j]).T)))) for i in ii])
 
 
 @SlikFunction
@@ -49,14 +49,14 @@ def _load_chain_old(output_file):
     """
     Load a chain produced by metropolis_hastings2
     """
-    c = cPickle.load(open(output_file,'rb'))
+    c = pickle.load(open(output_file,'rb'))
     if isinstance(c,Chains): return c
     else: 
         try:
             with open(output_file,'rb') as f:
-                params, derived = cPickle.load(f)
+                params, derived = pickle.load(f)
                 names = ['lnl','weight']+params+derived
-                return Chains([Chain(zip(names,array([hstack([s.lnl,s.weight,s.x,s.extra]) for s in sample]).T)) for sample in cPickle.load(f)])
+                return Chains([Chain(list(zip(names,array([hstack([s.lnl,s.weight,s.x,s.extra]) for s in sample]).T))) for sample in pickle.load(f)])
         except:
             return _load_chain_old2(output_file)
 
@@ -69,7 +69,7 @@ def _load_chain_old2(output_file):
     dat=[]
     with open(output_file) as f:
         while True:
-            try: dat.append(cPickle.load(f))
+            try: dat.append(pickle.load(f))
             except: break
                 
     params, derived = dat[0]
@@ -83,7 +83,7 @@ def _load_chain_old2(output_file):
         chains[source]['lnl'] += [s.lnl for s in samples]
         chains[source]['weight'] += [s.weight for s in samples]
     
-    return Chains([Chain({k:array(v) for k,v in chains[i].items()}) for i in sorted(chains.keys())])
+    return Chains([Chain({k:array(v) for k,v in list(chains[i].items())}) for i in sorted(chains.keys())])
 
     
 class metropolis_hastings(SlikSampler):
@@ -180,7 +180,7 @@ class metropolis_hastings(SlikSampler):
         self.proposal_cov, defaulting to the `scale` of each sampled parameter
         otherwise.
         """
-        in_covs = [{k:v.scale for k,v in sampled.items() if hasattr(v,'scale')}]
+        in_covs = [{k:v.scale for k,v in list(sampled.items()) if hasattr(v,'scale')}]
         if self.proposal_cov is not None:
             in_covs += (self.proposal_cov if isinstance(self.proposal_cov,list) else [self.proposal_cov])
         names, covs = combine_covs(*in_covs)
@@ -204,7 +204,7 @@ class metropolis_hastings(SlikSampler):
             x - the vector of parameter values
             extra - the extra information returned by lnl
         """
-        if mpi.is_master() and self.print_level>=1: print 'Starting MCMC chain...'
+        if mpi.is_master() and self.print_level>=1: print('Starting MCMC chain...')
         return self._mpi_mcmc(self.x0,lnl)
     
     
@@ -212,14 +212,14 @@ class metropolis_hastings(SlikSampler):
         rank = mpi.get_rank()
         for s in self._mcmc(x0, lnl):
             if self.print_level >= 2: 
-                print '\033[95mChain %i:\033[0m lnl=%.2f, weight=%i, params={%s}'%\
+                print('\033[95mChain %i:\033[0m lnl=%.2f, weight=%i, params={%s}'%\
                     (rank,s.lnl, s.weight,
-                     ', '.join('%s=%.3g'%i for i in zip(self.sampled.keys(),s.x)))
+                     ', '.join('%s=%.3g'%i for i in zip(list(self.sampled.keys()),s.x))))
             yield s
         
     def check_seed(self):
         if self.reseed: 
-            seed(int(md5(str(time.time())+str(multiprocessing.current_process().pid)).hexdigest()[:8],base=16))
+            seed(int(md5((str(time.time())+str(multiprocessing.current_process().pid)).encode('utf-8')).hexdigest()[:8],base=16))
 
 
     def _mcmc(self,x0,lnl):
@@ -243,22 +243,24 @@ class metropolis_hastings(SlikSampler):
     def _print_chain_stats(self,rank,samples):
         acc = sum(1 for s in samples['f1'] if s>0)
         tot = samples['f1'].sum()
-        print '\033[1m\033[95mChain %i:\033[0m %i/%i(%.1f%%) best=%.2f last={%s}'%\
+        print('\033[1m\033[95mChain %i:\033[0m %i/%i(%.1f%%) best=%.2f last={%s}'%\
             (rank,
              acc,
              tot,
              100*float(acc)/tot,
              samples['f0'].min(),
-             ', '.join('%s=%.3g'%i for i in zip(self.sampled.keys(),samples[['f%i'%i for i in range(2,2+len(self.sampled))]][-1])))
+             ', '.join('%s=%.3g'%i for i in zip(list(self.sampled.keys()),samples[['f%i'%i for i in range(2,2+len(self.sampled))]][-1]))))
 
     def _mpi_mcmc(self,x,lnl):  
     
+        protocol = pickle.HIGHEST_PROTOCOL
+    
         if self.output_file is not None:
             self._output_file = open(self.output_file,"wb")
-            cPickle.dump(hstack([['lnl','weight'],
-                                 self.sampled.keys(),
-                                 self.output_extra_params.keys()]),
-                         self._output_file,protocol=2)
+            pickle.dump(hstack([['lnl','weight'],
+                                 list(self.sampled.keys()),
+                                 list(self.output_extra_params.keys())]),
+                         self._output_file,protocol=protocol)
 
         (rank,size,comm) = mpi.get_mpi()
         if rank==0 and size>1:
@@ -268,37 +270,37 @@ class metropolis_hastings(SlikSampler):
             while not all(finished.values()):
                 while not comm.Iprobe(source=MPI.ANY_SOURCE, tag=0): time.sleep(.001) #Hack so OpenMPI doesn't eat 100% CPU
                 (source,new_samples)=comm.recv(source=MPI.ANY_SOURCE)
-                if (new_samples!=None): 
+                if (new_samples is not None): 
                     samples[source] = hstack([samples[source],new_samples]) if samples[source] is not None else new_samples
 
                     t=time.time()
                     if self.proposal_update and samples[source]['f1'].sum()>self.proposal_update_start:
-                        comm.send({"proposal_cov":get_new_cov(samples.values(), len(self.sampled))},dest=source)
+                        comm.send({"proposal_cov":get_new_cov(list(samples.values()), len(self.sampled))},dest=source)
                     else: 
                         comm.send({},dest=source)
                     covtime = int(1e3*(time.time() - t))
-                        
+
                     if self.print_level>=1: 
                         self._print_chain_stats(source,samples[source])
                         
                     if self.output_file is not None:
                         t=time.time()
-                        cPickle.dump((source,new_samples),self._output_file,protocol=2)
+                        pickle.dump((source,new_samples),self._output_file,protocol=protocol)
                         self._output_file.flush()
                         dumptime = int(1e3*(time.time() - t))
                         if self.debug_output: 
-                            print '\033[93mWork for %i: propsoal=%ims dump=%ims\033[0m'%(source,covtime,dumptime) 
+                            print('\033[93mWork for %i: proposal=%ims dump=%ims\033[0m'%(source,covtime,dumptime)) 
                 else: 
                     finished[source]=True
                     
         else:
             sampler = self._mcmc_withprint(x, lnl)
-            dtypes = ','.join([dtype(float).name]*(2+len(self.sampled))+self.output_extra_params.values())
+            dtypes = ','.join([dtype(float).name]*(2+len(self.sampled))+list(self.output_extra_params.values()))
             samples = empty(self.mpi_comm_freq,dtypes)
             try:
                 while True:
                     i=0
-                    for i, s in zip(range(self.mpi_comm_freq),sampler):
+                    for i, s in zip(list(range(self.mpi_comm_freq)),sampler):
                         yield s
                         samples[i] = tuple(chain(*[[s.lnl,s.weight],s.x,[s.extra[k] for k in self.output_extra_params]]))
 
@@ -307,9 +309,9 @@ class metropolis_hastings(SlikSampler):
                         comm.send((rank,samples[:i+1]),dest=0)
                         self.__dict__.update(comm.recv(source=0))
                         if self.debug_output: 
-                            print '\033[93mChain %i wasted %ims \033[0m'%(rank,int(1e3*(time.time()-t)))
+                            print('\033[93mChain %i wasted %ims \033[0m'%(rank,int(1e3*(time.time()-t))))
                     elif self.output_file is not None:
-                        cPickle.dump((0,samples[:i]),self._output_file,protocol=2)
+                        pickle.dump((0,samples[:i]),self._output_file,protocol=protocol)
 
                     if i<self.mpi_comm_freq-1: 
                         if size>1: comm.send((rank,None),dest=0)
@@ -321,7 +323,7 @@ class metropolis_hastings(SlikSampler):
        
        
 def get_covariance(data,weights=None):
-    if (weights==None): return cov(data.T)
+    if (weights is None): return cov(data.T)
     else:
         mean = sum(data.T*weights,axis=1)/sum(weights)
         zdata = data-mean
@@ -329,9 +331,9 @@ def get_covariance(data,weights=None):
 
 
 def get_new_cov(samples, nparams):
-    data = concatenate([s[['f%i'%i for i in range(2,2+nparams)]][s.shape[0]/2:] for s in samples if s is not None])
+    data = concatenate([s[['f%i'%i for i in range(2,2+nparams)]][s.shape[0]//2:] for s in samples if s is not None])
     data = data.view(float).reshape(data.shape+(-1,))
-    weights = hstack([s['f1'][s.shape[0]/2:] for s in samples if s is not None])
+    weights = hstack([s['f1'][s.shape[0]//2:] for s in samples if s is not None])
     return get_covariance(data, weights)
     
 def gelman_rubin_R(samples):

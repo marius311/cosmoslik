@@ -2,9 +2,11 @@ from collections import OrderedDict
 import copy, pkgutil, inspect, sys, os
 from numpy import inf, nan, hstack, transpose
 import imp, hashlib, time
-from subprocess_plugins import SubprocessExtension, subprocess_class
+from .subprocess_plugins import SubprocessExtension, subprocess_class
 import inspect
 import argparse
+from functools import reduce
+from uuid import uuid4
 
 __all__ = ['load_script','Slik','SlikFunction',
            'SlikDict','SlikPlugin','SlikSampler','param','param_shortcut',
@@ -22,12 +24,12 @@ def load_script(script):
     Read a CosmoSlik script.
     """
     if isinstance(script,str):
-        script_module = hashlib.md5(os.path.abspath(script) + time.ctime()).hexdigest()
+        script_module = uuid4().hex
         modname='%s.%s'%(datafile_module,script_module)
         mod = imp.load_source(modname,script)
         sys.modules[modname]=mod
         
-        plugins = [v for k,v in vars(mod).items() if (isinstance(v,type) and 
+        plugins = [v for k,v in list(vars(mod).items()) if (isinstance(v,type) and 
                                                       issubclass(v,SlikPlugin) and 
                                                       v!=SlikPlugin)]
         mains = [v for v in plugins if hasattr(v,'_slik_main')]
@@ -46,7 +48,7 @@ def load_script(script):
     class NoDefault: pass
     parser = argparse.ArgumentParser(prog="python -m cosmoslik %s"%script)
     args = argspec.args[1:]
-    defaults = [NoDefault]*(len(args) - len(argspec.defaults)) + list(argspec.defaults or [])
+    defaults = [NoDefault]*(len(args) - len(argspec.defaults or [])) + list(argspec.defaults or [])
     for name, default in zip(args,defaults):
         if default == NoDefault:
             parser.add_argument(name)
@@ -104,11 +106,11 @@ class Slik(object):
             missing = [k for k in self.get_sampled() if k not in kwargs]
             if len(missing)>0:
                 raise ValueError("Missing the following parameters: %s"%missing)
-            for k,v in kwargs.items(): params[k]=v
+            for k,v in list(kwargs.items()): params[k]=v
         elif len(args)!=len(self.get_sampled()):
             raise ValueError("Expected %i parameters, only got %i."%(len(self.get_sampled()),len(args)))
         else:
-            for k,v in zip(self.get_sampled().keys(),args): params[k]=v
+            for k,v in zip(list(self.get_sampled().keys()),args): params[k]=v
             
         return params(), params
             
@@ -147,7 +149,7 @@ class SlikDict(dict):
 
     def deepcopy(self):
         cself = copy.copy(self)
-        for k,v in vars(self).items():
+        for k,v in list(vars(self).items()):
             if isinstance(v,SlikDict): setattr(cself,k,v.deepcopy())
         cself.update(vars(cself))
         cself.__dict__ = cself
@@ -169,14 +171,14 @@ class SlikDict(dict):
         
         def _find_sampled(self,root):
             all_sampled = {}
-            for k,v in self.__dict__.iteritems(): 
+            for k,v in self.__dict__.items(): 
                 if isinstance(v,SlikDict): 
                     all_sampled.update(_find_sampled(v,root=root+[k]))
                 elif isinstance(v,param):
                     all_sampled[('.'.join(root+[k]))]=v 
             return all_sampled
         
-        return OrderedDict(sorted([(k,v) for k,v in _find_sampled(self,[]).iteritems()]))
+        return OrderedDict(sorted([(k,v) for k,v in _find_sampled(self,[]).items()]))
 
 
 class param(object):
@@ -216,7 +218,7 @@ def run_chain(main,nchains=1,pool=None,args=None,kwargs=None):
     otherwise a cosmoslik.chain.Chains instance
 
     """
-    from chains import Chain, Chains
+    from .chains import Chain, Chains
     from multiprocessing.pool import Pool
 
     if args is None: args=[]
@@ -226,8 +228,8 @@ def run_chain(main,nchains=1,pool=None,args=None,kwargs=None):
 
     if nchains==1:
         slik = Slik(main(*args,**kwargs))
-        return Chain(dict(zip(hstack(['weight','lnl',slik.get_sampled().keys()]),
-                              transpose([hstack([s.weight,s.lnl,s.x]) for s in slik.sample()]))))
+        return Chain(dict(list(zip(hstack(['weight','lnl',list(slik.get_sampled().keys())]),
+                              transpose([hstack([s.weight,s.lnl,s.x]) for s in slik.sample()])))))
     else:
         _pool = pool or Pool(nchains)
         try:
@@ -358,7 +360,7 @@ def param_shortcut(*args):
     
     class param_shortcut(param):
         def __init__(self,*args2,**kwargs2):
-            kwargs2.update(dict(zip(args,args2)))
+            kwargs2.update(dict(list(zip(args,args2))))
             super(param_shortcut,self).__init__(**kwargs2)
             
     return param_shortcut

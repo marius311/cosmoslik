@@ -18,7 +18,7 @@ class pico(SlikPlugin):
                  onfail=None,
                  **kwargs):
         
-        for k in kwargs.keys():
+        for k in list(kwargs.keys()):
             if k in self.name_mapping: 
                 kwargs[self.name_mapping[k]]=kwargs[k]
 

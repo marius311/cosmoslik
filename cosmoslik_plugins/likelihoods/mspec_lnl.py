@@ -4,7 +4,7 @@ from numpy import dot, arange, product, zeros, load, exp, vstack, hstack, ones, 
 from scipy.linalg import cho_solve, cholesky, inv
 from cosmoslik import SlikPlugin, all_kw
 from collections import defaultdict
-import cPickle
+import pickle
 from scipy.stats import gamma
 from scipy.special import erfinv
 
@@ -54,7 +54,7 @@ class mspec_lnl(SlikPlugin):
         _egfs = egfs if isinstance(egfs,dict) else defaultdict(lambda: egfs)
         
         return M.PowerSpectra({(a,b):cmb['cl_%s%s'%(a[0],b[0])][:lmax] + _egfs[(a,b)](spectra='cl_TT',lmax=lmax,spec=(a,b),**self.egfs_kwargs.get((a,b),{}))
-                               for (a,b),(lmin,lmax) in (use or self.use).items()})
+                               for (a,b),(lmin,lmax) in list((use or self.use).items())})
 
 
     
@@ -107,7 +107,7 @@ class mspec_lnl(SlikPlugin):
         if size is not None: fig.set_size_inches(size*ncol,size*nrow/aspect)
         fig.subplots_adjust(hspace=0.4)
         
-        lmin,lmax=min([v[0] for v in use.values()]),max([v[1] for v in use.values()])
+        lmin,lmax=min([v[0] for v in list(use.values())]),max([v[1] for v in list(use.values())])
         
         for i,k in enumerate(sorted(use),1):
             subplot(nrow,ncol,i)

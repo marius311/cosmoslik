@@ -4,7 +4,7 @@ class hubble_theta(SlikPlugin):
     
     def __init__(self):
         super(hubble_theta,self).__init__()
-        from f_hubble_theta import f_hubble_theta
+        from .f_hubble_theta import f_hubble_theta
         self.f_hubble_theta = f_hubble_theta
     
     def hubble_to_theta(self,
