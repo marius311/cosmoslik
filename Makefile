@@ -223,3 +223,15 @@ dummy:
 	$(SPHINXBUILD) -b dummy $(ALLSPHINXOPTS) $(BUILDDIR)/dummy
 	@echo
 	@echo "Build finished. Dummy builder generates no files."
+
+livehtml:
+	sphinx-autobuild -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
+
+
+INITS=cosmoslik_plugins/__init__.py cosmoslik_plugins/{likelihoods,models,samplers,misc}/__init__.py
+apidoc:
+	rm autodoc/*
+	bash -c "touch ${INITS}"
+	SPHINX_APIDOC_OPTIONS="members,special-members,show-inheritance" sphinx-apidoc -fPE -d 10 -o autodoc . conf.py setup.py
+	sed -ie "0,/cosmoslik/{s/cosmoslik/API Reference/}" autodoc/modules.rst
+	bash -c "rm ${INITS}"

@@ -1,4 +1,3 @@
-import pypico
 from cosmoslik_plugins.models.camb import camb
 from cosmoslik import SlikPlugin
 
@@ -9,7 +8,8 @@ class pico(SlikPlugin):
     def __init__(self,
                  datafile):
         
-        super(pico,self).__init__()
+        super(pico,self).__init__
+        import pypico
         self.pico = pypico.load_pico(datafile)
             
     def __call__(self,

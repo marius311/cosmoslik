@@ -19,7 +19,8 @@ sys.modules[datafile_module]=imp.new_module(datafile_module)
 
 def load_script(script):   
     """ 
-    Read a CosmoSlik script.
+    Read a CosmoSlik script from a file and return the :class:`SlikPlugin`
+    object.
     """
     if isinstance(script,str):
         script_module = uuid4().hex
@@ -89,7 +90,7 @@ class Slik(object):
     def get_start(self):
         """
         Get the starting point as a dictionary which can immediately be passed
-        `evaluate:
+        method:`evaluate`::
         
             slik = Slik(...)
             slik.evaluate(**slik.get_start())
@@ -134,7 +135,20 @@ class Slik(object):
 
 def SlikMain(cls):
     """
-    Mark this plugin as being the main plugin to run in a CosmoSlik script. 
+    Class decorator which marks a plugin as being the main one when running a
+    script from the command line.
+    
+    Example::
+    
+        # somefile.py
+        
+        @SlikMain  #run this plugin when I run `$ cosmoslik somefile.py`
+        class plugin1(SlikPlugin):
+            ...
+        
+        class plugin2(SlikPlugin):
+            ...
+            
     """
     if not issubclass(cls,SlikPlugin): raise ValueError("SlikMain used on a class which is not a SlikPlugin.")
     cls._slik_main = True
@@ -207,26 +221,26 @@ class sample(object):
 
 def run_chain(main,nchains=1,pool=None,args=None,kwargs=None):
     """
-    Runs a CosmoSlik chain, or if nchains!=1 runs a set of chains in parallel (trivially). 
+    Run a CosmoSlik chain, or if `nchains`!=1 run a set of chains in parallel.
 
-    Non-trivial parallelization, e.g. using MPI or with communication amongst chains, 
-    is handled by each cosmoslik.Sampler module. See individual documentation. 
+    Non-trivial parallelization, e.g. using MPI or with communication amongst
+    chains, is handled by each cosmoslik.Sampler module. See individual
+    documentation. 
 
 
-    Arguments:
-    ----------
-    main - the class object for your top-level SlikPlugin 
-    pool - any worker pool which has a pool.map function. 
-           default: multiprocessing.Pool(nchains)
-    nchains - the number of chains to run
-    args - args to pass to main(*args)
-    kwargs - kwargs to pass to main(**kwargs)
+    Args:
+        main: the class object for your :class:`SlikPlugin` (i.e. ``myplugin``,
+            not ``myplugin()``)
+        pool: any worker pool which has a ``pool.map`` function. Defaults to
+            ``multiprocessing.Pool(nchains)``
+        nchains(int): the number of chains to run in parallel using ``pool.map``
+        *args: args to pass to `main`
+        **kwargs: kwargs to pass to `main`
 
 
     Returns:
-    --------
-    A cosmoslik.chain.Chain instance if nchains=1, 
-    otherwise a cosmoslik.chain.Chains instance
+        A :class:`chain.Chain` instance if nchains=1, 
+        otherwise a :class:`chain.Chains` instance
 
     """
     from .chains import Chain, Chains
@@ -275,8 +289,16 @@ class SlikSampler(SlikDict):
     
 def get_plugin(name):
     """
-    Return a SlikPlugin class for plugin name. 
-    name should be module path relative to cosmoslik_plugins
+    Return a :class:`SlikPlugin` class for a given plugin `name`
+    
+    This::
+    
+        get_plugin("likelihoods.X")
+        
+    is equivalent to::
+    
+        from cosmoslik_plugins.likelihoods.X import X
+    
     """
     modname = name.split('.')[-1]
     cls = __import__('cosmoslik_plugins.'+name,fromlist=modname).__getattribute__(modname)
@@ -287,19 +309,16 @@ def get_plugin(name):
         
 def get_all_plugins():
     """
-    Gets all valid CosmoSlik plugins found in the 
-    namespace package cosmoslik_plugins.
+    Get all valid CosmoSlik plugins found in the namespace package
+    `cosmoslik_plugins`.
     
-    The return value is a dictionary of {class:name} for each plugin.
-    
-    Valid plugins are any module X which has an attribute X which 
-    is a subclass of SlikPlugin. If multiple references to
-    X exist in the package, only the shallowest one is returned.  
+    Returns:
+        dict: mapping of `{class:name}` for each plugin.
     """
-    from cosmoslik_plugins import likelihoods, models, samplers, utils
+    from cosmoslik_plugins import likelihoods, models, samplers, misc
     
     plugins = dict()
-    for t in [likelihoods, models, samplers, utils]:
+    for t in [likelihoods, models, samplers, misc]:
         for _,fullname,_ in  pkgutil.walk_packages(t.__path__,t.__name__+'.',onerror=(lambda x: None)):
             try:
                 modname = fullname.split('.')[-1]
@@ -337,15 +356,15 @@ def plugin_getter(module):
 
 def lsum(*args):
     """
-    If your likelihood function is the sum of a bunch of others, you can do,
+    If your likelihood function is the sum of a bunch of others, you can do::   
 
-    #my likelihood function
-    def __call__(self):
-        return lsum(lambda: myfunc1(), lambda: myfunc2())
+        def __call__(self):
+            return lsum(lambda: myfunc1(), lambda: myfunc2())
 
-    This returns the sum myfunc1()+myfunc2(), but never evaluates myfunc2() if myfunc1() returns inf. 
+    This returns the sum ``myfunc1()+myfunc2()``, but never evaluates ``myfunc2()``
+    if ``myfunc1()`` returns ``inf``. 
 
-    See also `lsumk` to automatically store the results of myfunc1/2. 
+    See also :func:`lsumk` to automatically store the results of ``myfunc1/2``.
     """
     s = 0
     for x in args:
@@ -356,15 +375,17 @@ def lsum(*args):
 
 def lsumk(lnls,args):
     """
-    If your likelihood function is the sum of a bunch of others, you can do,
+    If your likelihood function is the sum of a bunch of others, you can do::
 
-    def __call__(self):
-        self['lnls']={}
-        return lsum2(self['lnls'], [('key1',lambda: myfunc1()),
-                                    ('key2',lambda: myfunc2())])
+        def __call__(self):
+            self['lnls']={}
+            return lsumk(self['lnls'], [('key1',lambda: myfunc1()),
+                                        ('key2',lambda: myfunc2())])
 
-    This returns the sum myfunc1()+myfunc2(), but never evaluates myfunc2() if myfunc1() returns inf. 
-    It also stores the result myfunc1/2 to lnls['key1/2'] (stores nan if a function wasn't called)
+    This returns the sum ``myfunc1()+myfunc2()``, but never evaluates
+    ``myfunc2()`` if ``myfunc1()`` returns `inf`.  It also stores the result
+    ``myfunc1/2`` to ``lnls['key1/2']`` (stores `nan` if a function wasn't
+    called)
     """
     s = 0
     for k,f in args:
@@ -378,18 +399,14 @@ def lsumk(lnls,args):
 
 def param_shortcut(*args):
     """
-    *args is a list of keyword names, e.g. ['start','scale']
     
-    returns a param constructor which converts the given *args to **kwargs 
-    based on the keywords given above.
+    Create a :class:`param` constructor which splices in keyword arguments for you. 
 
-    Example:
+    Example::
     
-    >> param = param_shortcut('start','scale')
-    >> p = param(1,2)
-    >> p
-    {'start':1, 'scale':2}
-
+        param = param_shortcut('start','scale')
+        param(1,2)
+        > {'start':1, 'scale':2}
     """
     
     class param_shortcut(param):
@@ -411,20 +428,23 @@ def all_kw(ls,exclusions=None):
     
 def arguments(exclude=None, exclude_self=True, include_kwargs=True, ifset=False):
     """
-    Return a dictionary of the current function's arguments
-    (excluding self, and optionally other user specified ones or default ones)
+    Return a dictionary of the current function's arguments (excluding self, and
+    optionally other user specified ones or default ones)
     
     Args:
-    -----
-    exclude : list
-        list of argument names to exclude
-    exclude_self : bool
-        exclude the "self" argument
-    include_kwargs : bool
-        include the args captured by kwargs
-    ifset : bool
-        exclude keyword arguments whose value is their default
+        exclude (list): argument names to exclude
+        exclude_self (bool): exclude the "self" argument
+        include_kwargs (bool): include the args captured by kwargs
+        ifset (bool): exclude keyword arguments whose value is their default
         
+    Example::
+    
+        def foo(x, y=2, **kwargs):
+            return arguments()
+            
+        f(1)        # returns {'x':1, 'y':2}
+        f(1,3)      # returns {'x':1, 'y':3}
+        f(1,z=5)    # returns {'x':1, 'y':3, 'z':5}
     
     Adapted from: http://kbyanc.blogspot.fr/2007/07/python-aggregating-function-arguments.html
     """

@@ -1,5 +1,3 @@
-import mspec as M
-from mspec.utils import pairs
 from numpy import dot, arange, product, zeros, load, exp, vstack, hstack, ones, loadtxt, array, dot, sqrt, diag
 from scipy.linalg import cho_solve, cholesky, inv
 from cosmoslik import SlikPlugin, all_kw
@@ -20,6 +18,10 @@ class mspec_lnl(SlikPlugin):
                  ):
 
         super(mspec_lnl,self).__init__(**all_kw(locals()))
+        
+        import mspec as M
+        from mspec.utils import pairs
+
 
         if not isinstance(signal,M.PowerSpectra): self.signal = M.load_signal(signal) 
         if egfs_kwargs is None: self.egfs_kwargs = defaultdict(lambda: {})    

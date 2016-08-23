@@ -23,25 +23,21 @@ class spt_lowl(SlikPlugin):
                  cal=None,
                  **kwargs):
         """
-        Args
-        ----
-        which : 'k11' or 's12'
-            which data to use
-        lmin, lmax : int
-            restrict the data to this range
-        drop : slice, int or array of ints
-            remove the bins at these indices
-        cal : float
-            calibration parameter, defined to multiply the data power spectrum.
-            (only available if which='s12')
-        egfs : callable, None, or 'default'
-            A callable object which will be called to compute the extra-galactic
-            foreground model. It should accept keyword arguments `lmax` and
-            `egfs_dat` which will be of type `egfs_dat` and contain information
-            like frequency and fluxcut needed for more sophisticated foreground models. 
-            If `egfs` is None, its assumed it will be set later (you must do so
-            before computing the likelihood). If 'default' is specified, the
-            default foreground model will be used (see `spt_lowl_egfs`)
+        Args:
+            which: 'k11' or 's12'
+            lmin/lmax (int): restrict the data to this :math:`\ell`-range
+            drop (slice, int, or array of ints): remove the bins at these indices
+            cal (float): calibration parameter, defined to multiply the data
+                power spectrum. (only available if which='s12')
+            egfs (callable, None, or 'default'): A callable object which will be
+                called to compute the extra-galactic foreground model. It should
+                accept keyword arguments `lmax` which specifies the length of
+                the array to reuturn, and `egfs_specs` which contains information
+                like frequency and fluxcut needed for more sophisticated
+                foreground models.  If `egfs` is None, its assumed it will be
+                set later (you must do so before computing the likelihood). If
+                'default' is specified, the default foreground model will be
+                used (see :class:`spt_lowl_egfs`)
         """
         
         super().__init__(**arguments())
@@ -121,13 +117,11 @@ class spt_lowl(SlikPlugin):
         
         Compute the likelihood. 
         
-        Args
-        ----
-        cmb : {'TT':array_like, ...}
-            A dict which has a key "TT" which holds the CMB Dl's in muK^2 
-        egfs, cal : 
-            Override whatever (if anything) was set in __init__.  See __init__
-            for documentation on these arguments. 
+        Args:
+            cmb (dict): A dict which has a key "TT" which holds
+                the CMB Dl's in muK^2 
+            egfs/cal: Override whatever (if anything) was set in :func:`__init__`.  See
+                :func:`__init__` for documentation on these arguments. 
         """
         
         self.update(**{k:v for k,v in arguments().items() if v is not None})
@@ -142,8 +136,17 @@ class spt_lowl(SlikPlugin):
     def plot(self,
              ax=None,
              residuals=False,
-             show_comps=False,
-             comps_kw={}):
+             show_comps=False):
+        """
+        Plot the data (multplied by calibration) and the model. 
+        
+        Calibration and model taken from previous call to :func:`__call__`.
+        
+        Args:
+            ax (axes): matplotlib axes object
+            residual (bool): plot residuals to the model
+            show_comps (bool): plot CMB and egfs models separately
+        """
         
         if ax is None:
             from matplotlib.pyplot import gca
@@ -166,6 +169,12 @@ class spt_lowl(SlikPlugin):
         ax.set_ylabel(r'$D_\ell\,[\rm \mu K^2]$',size=18)
 
     def get_cl_model(self, cmb, egfs):
+        
+        if ('TT' not in cmb):
+            raise ValueError('Need the TT spectrum for spt_lowl.')
+        if cmb['TT'].size < self.lmax:
+            raise ValueError('Need the TT spectrum to at least lmax=%i for spt_lowl.'%self.lmax)
+        
         #Get CMB + foreground model
         cl = cmb['TT'][:self.lmax] + egfs(lmax=self.lmax, egfs_specs=self.egfs_specs)[:self.lmax]
         
@@ -176,9 +185,9 @@ class spt_lowl(SlikPlugin):
 
 class spt_lowl_egfs(SlikPlugin):
     """
-    A default foreground model for the SPT low-L likelihood which has a
-    power-law clustering term (Dl ~ l^0.8) and a Poisson term, each with a free
-    amplitude.
+    The default foreground model for the SPT low-L likelihood from Story/Keisler
+    et al. which features (tSZ+kSZ), CIB clustering, and CIB Poisson templates,
+    with free amplitudes and priors on these amplitudes.
     """
     
     def __init__(self,

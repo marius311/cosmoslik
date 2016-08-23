@@ -21,6 +21,11 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+import os, os.path as osp
+README_rst = ".README.rst"
+if not osp.exists(README_rst) or (osp.getmtime(README_rst) < osp.getmtime("README.md")):
+    os.system("pandoc --from=markdown --to=rst --output=%s README.md"%README_rst)
+
 import recommonmark
 from recommonmark.transform import AutoStructify
 
@@ -40,7 +45,8 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
     'sphinx.ext.githubpages',
-    'nbsphinx'
+    'nbsphinx',
+    'sphinxcontrib.napoleon'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -96,7 +102,7 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = ['.build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['.build', 'Thumbs.db', '.DS_Store', '**.ipynb_checkpoints']
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -352,11 +358,3 @@ texinfo_documents = [
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #
 # texinfo_no_detailmenu = False
-
-# At the bottom of conf.py
-def setup(app):
-    app.add_config_value('recommonmark_config', {
-            'url_resolver': lambda url: github_doc_root + url,
-            'auto_toc_tree_section': 'Contents',
-            }, True)
-    app.add_transform(AutoStructify)

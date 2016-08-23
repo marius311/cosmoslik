@@ -49,23 +49,22 @@ def main():
 
 
 
-if not sys.argv[1:]: parser.print_help()
-else:
-    args = parser.parse_args()
-    try:
-        main()
-    except BaseException as e:
-        if isinstance(e,(Exception,KeyboardInterrupt)):
-            if args.traceback: 
-                traceback.print_exception(type(e), e, sys.exc_info()[2], None, sys.stderr)
-            else:
-                sys.stderr.write('\033[91m')
-                traceback.print_exception(type(e), e, None, None, sys.stderr)
-                sys.stderr.write('\033[0m')
-                print("Run CosmoSlik with --traceback for more info.")
-            sys.exit(1)
-        else:
-            raise
+if __name__=='__main__':
 
-    
-    
+    if not sys.argv[1:]: parser.print_help()
+    else:
+        args = parser.parse_args()
+        try:
+            main()
+        except BaseException as e:
+            if isinstance(e,(Exception,KeyboardInterrupt)):
+                if args.traceback: 
+                    traceback.print_exception(type(e), e, sys.exc_info()[2], None, sys.stderr)
+                else:
+                    sys.stderr.write('\033[91m')
+                    traceback.print_exception(type(e), e, None, None, sys.stderr)
+                    sys.stderr.write('\033[0m')
+                    print("Run CosmoSlik with --traceback for more info.")
+                sys.exit(1)
+            else:
+                raise
