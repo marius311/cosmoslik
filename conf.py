@@ -17,19 +17,20 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import os
+import os, os.path as osp
 import sys
 sys.path.insert(0, os.path.abspath('.'))
 
-import os, os.path as osp
+
 README_rst = ".README.rst"
 if not osp.exists(README_rst) or (osp.getmtime(README_rst) < osp.getmtime("README.md")):
     os.system("pandoc --from=markdown --to=rst --output=%s README.md"%README_rst)
 
-os.system("make apidoc")
-
-
-
+from pathlib import Path
+from glob import glob
+if (not osp.exists("autodoc")
+    or (max(osp.getmtime(str(f)) for f in Path('.').glob("cosmoslik*/**/*.py"))) > min(osp.getmtime(f) for f in glob("autodoc/*.rst"))):
+    os.system("make apidoc")
 
 # -- General configuration ------------------------------------------------
 

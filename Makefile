@@ -225,7 +225,7 @@ dummy:
 	@echo "Build finished. Dummy builder generates no files."
 
 livehtml:
-	sphinx-autobuild -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
+	sphinx-autobuild -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html --ignore ".tags*" --ignore "autodoc/*.rst" --ignore "**/__init__.py"
 
 
 # create/delete these __init__.py files b/c of a bug where apidoc doesn't
@@ -234,10 +234,9 @@ livehtml:
 INITS=cosmoslik_plugins{,/likelihoods,/models,/samplers,/misc}/__init__.py
 
 apidoc:
-	mkdir -p autodoc
-	rm -f autodoc/*
+	rm -f autodoc/*.rst
 	bash -c "touch ${INITS}"
 	SPHINX_APIDOC_OPTIONS="members,special-members,show-inheritance" sphinx-apidoc -fPE -o autodoc . conf.py setup.py
-	(echo "API Reference"; echo "============="; tail -n+3 autodoc/modules.rst) > autodoc/.modules.rst
-	mv autodoc/.modules.rst autodoc/modules.rst
 	bash -c "rm ${INITS}"
+	(echo "API Reference"; echo "============="; tail -n+3 autodoc/modules.rst) | tee autodoc/modules.rst > /dev/null
+	touch autodoc/.updated
