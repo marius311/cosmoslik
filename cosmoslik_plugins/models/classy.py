@@ -1,75 +1,85 @@
 
-from cosmoslik import SlikPlugin
+from cosmoslik import SlikPlugin, arguments
 from numpy import arange, pi
 
 
 class classy(SlikPlugin):
     """
-    Plugin for CLASS.
+    Compute the CMB power spectrum with CLASS.
 
-    Credit: Brent Follin, Teresa Hamill
+    Based on work by: Brent Follin, Teresa Hamill
     """
 
     #{cosmoslik name : class name}
-    name_mapping = {'As':'A_s',
-                    'ns':'n_s',
-                    'r':'r',
-                    'nt':'n_t',
-                    'ombh2':'omega_b',
-                    'omch2':'omega_cdm',
-                    'omnuh2':'omega_ncdm',
-                    'tau':'tau_reio',
-                    'H0':'H0',
-                    'massive_neutrinos':'N_ncdm',
-                    'massless_neutrinos':'N_ur',
-                    'Yp':'YHe',
-                    'pivot_scalar':'k_pivot'}
+    name_mapping = {
+        'As':'A_s',
+        'lmax':'l_max_scalars',
+        'mnu':'m_ncdm',
+        'Neff':'N_ncdm',
+        'ns':'n_s',
+        'nt':'n_t',
+        'ombh2':'omega_b',
+        'omch2':'omega_cdm',
+        'omk':'Omega_k',
+        'pivot_scalar':'k_pivot',
+        'r':'r',
+        'tau':'tau_reio',
+        'Tcmb':'T_cmb',
+        'Yp':'YHe',
+    }
 
 
-    def __init__(self):
-        super(classy,self).__init__()
-
-        try:
-            from classy import Class
-        except ImportError:
-            raise Exception("Failed to import CLASS python wrapper 'Classy'.")
-
+    def __init__(self,**defaults):
+        super().__init__()
+        from classy import Class
         self.model = Class()
+        self.defaults = defaults
 
 
-    def __call__(self,
-                 ombh2,
-                 omch2,
-                 H0,
-                 As,
-                 ns,
-                 tau,
-                 omnuh2=0.006,
-                 w=None,
-                 r=None,
-                 nrun=None,
-                 omk=0,
-                 Yp=None,
-                 Tcmb=2.7255,
-                 massive_neutrinos=1,
-                 massless_neutrinos=2.046,
-                 l_max_scalar=3000,
-                 l_max_tensor=3000,
-                 pivot_scalar=0.002,
-                 outputs=[],
-                 **kwargs):
-
-
+    def convert_params(self,**params):
+        """
+        Convert from CosmoSlik params to CLASS
+        """
+        params = {self.name_mapping.get(k,k):v for k,v in params.items()}
+        if 'theta' in params:
+            params['100*theta_s'] = 100*params.pop('theta') 
+        params['lensing'] = 'yes' if params.pop('DoLensing',True) else 'no'
+        return params
         
-        self.model.set(output='tCl, lCl, pCl',
-                       lensing='yes',
-                       l_max_scalars=l_max_scalar,
-                       **{self.name_mapping[k]:v for k,v in list(locals().items()) 
-                          if k in self.name_mapping and v is not None})
+        
+    def __call__(self,
+                 As=None,
+                 DoLensing=True,
+                 H0=None,
+                 lmax=None,
+                 mnu=None,
+                 Neff=None,
+                 nrun=None,
+                 ns=None,
+                 ombh2=None, 
+                 omch2=None,
+                 omk=None,
+                 output='tCl, lCl, pCl',
+                 pivot_scalar=None,
+                 r=None,
+                 tau=None,
+                 Tcmb=2.7255,
+                 theta=None,
+                 w=None,
+                 Yp=None,
+                 nowarn=False,
+                 **kwargs):
+        
+        if not nowarn and kwargs:
+            print('Warning: passing unknown parameters to CLASS: '+str(kwargs)+' (set nowarn=True to turn off this message.)')
+        
+        params = dict(self.defaults,**{k:v for k,v in arguments(include_kwargs=False, exclude=["nowarn"]).items() if v is not None})
+        self.model.set(self.convert_params(**params))
         self.model.compute()
 
-        ell = arange(l_max_scalar+1)
-        self.cmb_result = {'cl_%s'%x:(self.model.lensed_cl(l_max_scalar)[x.lower()])*Tcmb**2*1e12*ell*(ell+1)/2/pi
+        lmax = params['lmax']
+        ell = arange(lmax+1)
+        self.cmb_result = {x:(self.model.lensed_cl(lmax)[x.lower()])*Tcmb**2*1e12*ell*(ell+1)/2/pi
                            for x in ['TT','TE','EE','BB','PP','TP']}
 
         self.model.struct_cleanup()

@@ -2,7 +2,6 @@ from collections import OrderedDict
 import copy, pkgutil, inspect, sys, os
 from numpy import inf, nan, hstack, transpose
 import imp, hashlib, time
-from .subprocess_plugins import SubprocessExtension, subprocess_class
 import inspect
 import argparse
 from functools import reduce
@@ -10,13 +9,12 @@ from uuid import uuid4
 
 __all__ = ['load_script','Slik','SlikFunction',
            'SlikDict','SlikPlugin','SlikSampler','param','param_shortcut',
-           'SubprocessExtension','subprocess_class','get_plugin','get_all_plugins',
-           'lsum','lsumk','all_kw','run_chain','SlikMain']
+           'get_plugin','get_all_plugins',
+           'lsum','lsumk','all_kw','run_chain','SlikMain', 'arguments']           
 
 """ Loaded datafiles will reside in this empty module. """
 datafile_module = 'cosmoslik.scripts'
 sys.modules[datafile_module]=imp.new_module(datafile_module)
-
 
 
 def load_script(script):   
@@ -83,8 +81,21 @@ class Slik(object):
         
         
     def get_sampled(self):
+        """
+        Get all the sampled parameters. 
+        """
         return self._sampled
         
+    def get_start(self):
+        """
+        Get the starting point as a dictionary which can immediately be passed
+        `evaluate:
+        
+            slik = Slik(...)
+            slik.evaluate(**slik.get_start())
+            
+        """
+        return {k:v.start for k,v in self.get_sampled().items()}
         
     def evaluate(self,*args,**kwargs):
         """
@@ -138,7 +149,7 @@ def SlikFunction(func):
 class SlikDict(dict):
     
     def __init__(self,*args,**kwargs):
-        super(SlikDict, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.__dict__ = self
         
     def __setitem__(self,k,v):
@@ -265,7 +276,7 @@ class SlikSampler(SlikDict):
 def get_plugin(name):
     """
     Return a SlikPlugin class for plugin name. 
-    name should be module path relative to cosmoslik.plugins
+    name should be module path relative to cosmoslik_plugins
     """
     modname = name.split('.')[-1]
     cls = __import__('cosmoslik_plugins.'+name,fromlist=modname).__getattribute__(modname)
@@ -285,20 +296,43 @@ def get_all_plugins():
     is a subclass of SlikPlugin. If multiple references to
     X exist in the package, only the shallowest one is returned.  
     """
-    import cosmoslik_plugins
+    from cosmoslik_plugins import likelihoods, models, samplers, utils
+    
     plugins = dict()
-    for _,fullname,_ in  pkgutil.walk_packages(cosmoslik_plugins.__path__,cosmoslik_plugins.__name__+'.'):
-        try:
-            modname = fullname.split('.')[-1]
-            mod = __import__(fullname,fromlist=modname)
-            cls = mod.__getattribute__(modname)
-            mro = inspect.getmro(cls)
-            if SlikPlugin in mro and len(plugins.get(cls,(fullname,))[0])>=len(fullname): 
-                plugins[cls] = fullname
-        except Exception:
-            pass
+    for t in [likelihoods, models, samplers, utils]:
+        for _,fullname,_ in  pkgutil.walk_packages(t.__path__,t.__name__+'.',onerror=(lambda x: None)):
+            try:
+                modname = fullname.split('.')[-1]
+                mod = __import__(fullname,fromlist=modname)
+                cls = mod.__getattribute__(modname)
+                mro = inspect.getmro(cls)
+                if SlikPlugin in mro and len(plugins.get(cls,(fullname,))[0])>=len(fullname): 
+                    plugins[cls] = fullname
+            except Exception:
+                pass
         
     return plugins
+    
+
+def plugin_getter(module):
+    class plugin_getter(object):
+        def __init__(self):
+            for k,v in get_all_plugins().items():
+                vs = v.split(".")
+                if vs[1]==module:
+                    setattr(self,vs[2],k)
+        
+        def __getattribute__(self,x):
+            try:
+                return super().__getattribute__(x)
+            except AttributeError: pass
+            # try again even though this will fail so we see the import error
+            # if it is in fact a real plugin 
+            return get_plugin("%s.%s"%(module,x)) 
+                
+    return plugin_getter()
+
+
 
 
 def lsum(*args):
@@ -372,3 +406,38 @@ def all_kw(ls,exclusions=None):
               + (exclusions if exclusions is not None else [])):
         ls.pop(k,None)
     return ls
+    
+    
+    
+def arguments(exclude=None, exclude_self=True, include_kwargs=True, ifset=False):
+    """
+    Return a dictionary of the current function's arguments
+    (excluding self, and optionally other user specified ones or default ones)
+    
+    Args:
+    -----
+    exclude : list
+        list of argument names to exclude
+    exclude_self : bool
+        exclude the "self" argument
+    include_kwargs : bool
+        include the args captured by kwargs
+    ifset : bool
+        exclude keyword arguments whose value is their default
+        
+    
+    Adapted from: http://kbyanc.blogspot.fr/2007/07/python-aggregating-function-arguments.html
+    """
+    from inspect import getargvalues, stack, signature
+    _, kwname, args = getargvalues(stack()[1][0])[-3:]
+    if include_kwargs:
+        args.update(args.pop(kwname, []))
+    else:
+        args.pop(kwname, [])
+    if exclude_self: args.pop("self",None)
+    if exclude: 
+        for e in exclude: args.pop(e,None)
+    args.pop('__class__',None) #don't really understand why this shows up sometimes...
+    if ifset:
+        raise NotImplementedError()
+    return args
