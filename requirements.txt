@@ -1,0 +1,8 @@
+CommonMark==0.5.4
+docutils==0.12
+nbsphinx==0.2.9
+pandoc==1.0.0b2
+recommonmark==0.4.0
+Sphinx==1.4.6
+sphinx-autobuild==0.6.0
+sphinxcontrib-napoleon==0.5.3
