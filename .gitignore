@@ -1,4 +1,12 @@
 .ipynb_checkpoints
+.build
+build
+.eggs
+.static
+.templates
+autodoc
+.tags
+.README.rst
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
