@@ -228,10 +228,16 @@ livehtml:
 	sphinx-autobuild -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 
 
-INITS=cosmoslik_plugins/__init__.py cosmoslik_plugins/{likelihoods,models,samplers,misc}/__init__.py
+# create/delete these __init__.py files b/c of a bug where apidoc doesn't
+# recognize namespace packages properly
+# https://github.com/sphinx-doc/sphinx/issues/1500
+INITS=cosmoslik_plugins{,/likelihoods,/models,/samplers,/misc}/__init__.py
+
 apidoc:
-	rm autodoc/*
+	mkdir -p autodoc
+	rm -f autodoc/*
 	bash -c "touch ${INITS}"
-	SPHINX_APIDOC_OPTIONS="members,special-members,show-inheritance" sphinx-apidoc -fPE -d 10 -o autodoc . conf.py setup.py
-	sed -ie "0,/cosmoslik/{s/cosmoslik/API Reference/}" autodoc/modules.rst
+	SPHINX_APIDOC_OPTIONS="members,special-members,show-inheritance" sphinx-apidoc -fPE -o autodoc . conf.py setup.py
+	(echo "API Reference"; echo "============="; tail -n+3 autodoc/modules.rst) > autodoc/.modules.rst
+	mv autodoc/.modules.rst autodoc/modules.rst
 	bash -c "rm ${INITS}"

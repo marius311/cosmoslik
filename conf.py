@@ -17,17 +17,16 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
+sys.path.insert(0, os.path.abspath('.'))
 
 import os, os.path as osp
 README_rst = ".README.rst"
 if not osp.exists(README_rst) or (osp.getmtime(README_rst) < osp.getmtime("README.md")):
     os.system("pandoc --from=markdown --to=rst --output=%s README.md"%README_rst)
 
-import recommonmark
-from recommonmark.transform import AutoStructify
+os.system("make apidoc")
 
 
 
