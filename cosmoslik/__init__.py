@@ -1,6 +1,6 @@
 from .cosmoslik import *
 from . import utils
 
-models = cosmoslik.plugin_getter("models")
-likelihoods = cosmoslik.plugin_getter("likelihoods")
-samplers = cosmoslik.plugin_getter("samplers")
+models      = cosmoslik.plugin_getter("cosmoslik_plugins.models")
+likelihoods = cosmoslik.plugin_getter("cosmoslik_plugins.likelihoods")
+samplers    = cosmoslik.plugin_getter("cosmoslik_plugins.samplers")

@@ -1,16 +1,18 @@
 from collections import OrderedDict
-import copy, pkgutil, inspect, sys, os
-from numpy import inf, nan, hstack, transpose
-import imp, hashlib, time
-import inspect
-import argparse
 from functools import reduce
+from importlib import import_module
+from inspect import getmro, getargvalues, stack, signature, getargspec
+from numpy import inf, nan, hstack, transpose
+from pkgutil import walk_packages
 from uuid import uuid4
+import argparse
+import copy, pkgutil, sys, os
+import imp, hashlib, time
+
 
 __all__ = ['load_script','Slik','SlikFunction',
-           'SlikDict','SlikPlugin','SlikSampler','param','param_shortcut',
-           'get_plugin','get_all_plugins',
-           'lsum','lsumk','all_kw','run_chain','SlikMain', 'arguments']           
+           'SlikDict','SlikPlugin','SlikSampler','param','param_shortcut','get_all_plugins',
+           'lsum','lsumk','all_kw','run_chain','SlikMain', 'arguments', 'get_caller']           
 
 """ Loaded datafiles will reside in this empty module. """
 datafile_module = 'cosmoslik.scripts'
@@ -43,7 +45,7 @@ def load_script(script):
     else:
         raise ValueError("`script` argument should be filename or SlikPlugin class")
     
-    argspec = inspect.getargspec(main.__init__)
+    argspec = getargspec(main.__init__)
     class NoDefault: pass
     parser = argparse.ArgumentParser(prog="cosmoslik %s"%script)
     args = argspec.args[1:]
@@ -287,73 +289,66 @@ class SlikSampler(SlikDict):
         raise NotImplementedError()
     
     
-def get_plugin(name):
+    
+def get_all_plugins(ignore_import_errors=True):
     """
-    Return a :class:`SlikPlugin` class for a given plugin `name`
-    
-    This::
-    
-        get_plugin("likelihoods.X")
-        
-    is equivalent to::
-    
-        from cosmoslik_plugins.likelihoods.X import X
-    
-    """
-    modname = name.split('.')[-1]
-    cls = __import__('cosmoslik_plugins.'+name,fromlist=modname).__getattribute__(modname)
-    if not inspect.isclass(cls) or (SlikPlugin not in inspect.getmro(cls) and SlikSampler not in inspect.getmro(cls)):
-        raise Exception("Can't load plugin '%s'. It does not appear to be a CosmoSlik plugin."%name)
-    return cls
-        
-        
-def get_all_plugins():
-    """
-    Get all valid CosmoSlik plugins found in the namespace package
-    `cosmoslik_plugins`.
+    Search recursively through the namespace package `cosmoslik_plugins` for any `SlikPlugin`s.
     
     Returns:
-        dict: mapping of `{class:name}` for each plugin.
+        dict: keys are the shortest qualified name for the object and values are a type object. 
     """
     from cosmoslik_plugins import likelihoods, models, samplers, misc
     
     plugins = dict()
     for t in [likelihoods, models, samplers, misc]:
-        for _,fullname,_ in  pkgutil.walk_packages(t.__path__,t.__name__+'.',onerror=(lambda x: None)):
+        for _,fullname,_ in  walk_packages(t.__path__,t.__name__+'.',onerror=(lambda x: None)):
             try:
-                modname = fullname.split('.')[-1]
-                mod = __import__(fullname,fromlist=modname)
-                cls = mod.__getattribute__(modname)
-                mro = inspect.getmro(cls)
-                if SlikPlugin in mro and len(plugins.get(cls,(fullname,))[0])>=len(fullname): 
-                    plugins[cls] = fullname
-            except Exception:
-                pass
+                mod = import_module(fullname)
+            except ImportError as e:
+                if not ignore_import_errors: raise
+                plugins[e] = fullname
+            else:
+                for name in dir(mod):
+                    attr = getattr(mod,name)
+                    if (attr is not SlikPlugin
+                        and hasattr(attr,'__mro__')
+                        and SlikPlugin in getattr(attr,'__mro__')
+                        and (attr not in plugins
+                             or len(plugins[attr]) > len(fullname+'.'+name))):
+                        plugins[attr] = fullname+'.'+name
         
-    return plugins
+    return {v:k for k,v in plugins.items()}
+    
     
 
+
 def plugin_getter(module):
-    class plugin_getter(object):
-        def __init__(self):
-            for k,v in get_all_plugins().items():
-                vs = v.split(".")
-                if vs[1]==module:
-                    setattr(self,vs[2],k)
+    
+    plugins = {tuple(k.split('.')):v for k,v in get_all_plugins().items()}
+    if isinstance(module,str): module = tuple(module.split('.'))
+    
+    class _plugin_getter(object):
         
-        def __getattribute__(self,x):
-            try:
-                return super().__getattribute__(x)
-            except AttributeError: pass
-            # try again even though this will fail so we see the import error
-            # if it is in fact a real plugin 
-            return get_plugin("%s.%s"%(module,x)) 
-                
-    return plugin_getter()
+        def __init__(self):
+            for k,v in plugins.items():                    
+                if k[:len(module)]==module and k!=module:
+                    nxt = k[len(module)]
+                    setattr(self,nxt,plugin_getter(module+(nxt,)))
+        
+        def __call__(self,*args,**kwargs):
+            return plugins[module+(module[-1],)](*args,**kwargs)
+        
+        def __getattribute__(self,name):
+            val = super().__getattribute__(name)
+            if isinstance(val,Exception): raise AttributeError(name) from val
+            else: return val
 
+    if module in plugins:
+        return plugins[module]
+    else:
+        return _plugin_getter()
 
-
-
+    
 def lsum(*args):
     """
     If your likelihood function is the sum of a bunch of others, you can do::   
@@ -448,7 +443,6 @@ def arguments(exclude=None, exclude_self=True, include_kwargs=True, ifset=False)
     
     Adapted from: http://kbyanc.blogspot.fr/2007/07/python-aggregating-function-arguments.html
     """
-    from inspect import getargvalues, stack, signature
     _, kwname, args = getargvalues(stack()[1][0])[-3:]
     if include_kwargs:
         args.update(args.pop(kwname, []))
