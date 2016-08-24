@@ -26,8 +26,12 @@ from cosmoslik import *
 class myscript(SlikPlugin):
     def __init__(self):
         super().__init__()
+        
+        # define sampled parameters
         self.a = param(start=0, scale=1)
         self.b = param(start=0, scale=1)
+        
+        # set the sampler
         self.sampler = samplers.metropolis_hastings(
             self,
             num_samples=1e5, 
@@ -35,6 +39,7 @@ class myscript(SlikPlugin):
         )
 
     def __call__(self):
+        # compute the likelihood
         return (self.a**2 + self.b**2)/2
 ```
 

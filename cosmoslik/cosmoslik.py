@@ -1,7 +1,7 @@
 from collections import OrderedDict
 from functools import reduce
 from importlib import import_module
-from inspect import getmro, getargvalues, stack, signature, getargspec
+from inspect import getmro, getargvalues, stack, getargspec#, signature
 from numpy import inf, nan, hstack, transpose
 from pkgutil import walk_packages
 from uuid import uuid4
@@ -311,10 +311,13 @@ def get_all_plugins(ignore_import_errors=True):
                 for name in dir(mod):
                     attr = getattr(mod,name)
                     if (attr is not SlikPlugin
+                        and attr is not SlikSampler
                         and hasattr(attr,'__mro__')
-                        and SlikPlugin in getattr(attr,'__mro__')
+                        and (SlikPlugin in getattr(attr,'__mro__') 
+                             or SlikSampler in getattr(attr,'__mro__'))
                         and (attr not in plugins
                              or len(plugins[attr]) > len(fullname+'.'+name))):
+                        
                         plugins[attr] = fullname+'.'+name
         
     return {v:k for k,v in plugins.items()}
@@ -419,6 +422,50 @@ def all_kw(ls,exclusions=None):
         ls.pop(k,None)
     return ls
     
+    
+    
+def get_caller(depth=1):
+    """
+    Get the calling function. Works in many typical (but not all) cases.
+    
+    Thanks to: http://stackoverflow.com/a/39079070/1078529
+    
+    Example::
+    
+        def foo():
+            return get_caller()
+            
+        foo() #returns the 'foo' function object
+
+    or
+            
+        def foo():
+            return bar()
+            
+        def bar():
+            return get_caller(depth=2) 
+            
+        foo() #returns the 'foo' function object
+    """
+    fr = sys._getframe(depth)   # inspect.stack()[1][0]
+    co = fr.f_code
+    for get in (
+        lambda:fr.f_globals[co.co_name],
+        lambda:getattr(fr.f_locals['self'], co.co_name),
+        lambda:getattr(fr.f_locals['cls'], co.co_name),
+        lambda:fr.f_back.f_locals[co.co_name], # nested
+        lambda:fr.f_back.f_locals['func'],  # decorators
+        lambda:fr.f_back.f_locals['meth'],
+        lambda:fr.f_back.f_locals['f'],
+        ):
+        try:
+            func = get()
+        except (KeyError, AttributeError):
+            pass
+        else:
+            if func.__code__ == co:
+                return func
+    raise AttributeError("func not found")
     
     
 def arguments(exclude=None, exclude_self=True, include_kwargs=True, ifset=False):
