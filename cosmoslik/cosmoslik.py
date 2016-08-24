@@ -304,7 +304,7 @@ def get_all_plugins(ignore_import_errors=True):
         for _,fullname,_ in  walk_packages(t.__path__,t.__name__+'.',onerror=(lambda x: None)):
             try:
                 mod = import_module(fullname)
-            except ImportError as e:
+            except Exception as e:
                 if not ignore_import_errors: raise
                 plugins[e] = fullname
             else:
