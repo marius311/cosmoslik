@@ -225,7 +225,13 @@ dummy:
 	@echo "Build finished. Dummy builder generates no files."
 
 livehtml:
-	sphinx-autobuild -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html --ignore ".tags*" --ignore "autodoc/*.rst" --ignore "**/__init__.py"
+	sphinx-autobuild -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html \
+		--ignore ".tags*" \
+		--ignore "autodoc/*.rst" \
+		--ignore "**/__init__.py" \
+		--ignore "**/.~*" \
+		--ignore "**/.ipynb_checkpoints/*" \
+		--ignore ".git/**"
 
 
 # create/delete these __init__.py files b/c of a bug where apidoc doesn't
