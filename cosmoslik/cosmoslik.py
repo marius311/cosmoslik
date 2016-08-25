@@ -4,10 +4,10 @@ from importlib import import_module
 from inspect import getmro, getargvalues, stack, getargspec
 from numpy import inf, nan, hstack, transpose, isinf
 from pkgutil import walk_packages
-from uuid import uuid4
 import argparse
 import copy, pkgutil, sys, os
 import imp, hashlib, time
+from hashlib import md5
 
 
 __all__ = ['load_script','Slik','SlikFunction',
@@ -25,10 +25,13 @@ def load_script(script):
     object.
     """
     if isinstance(script,str):
-        script_module = uuid4().hex
+        script_module = md5(open(script).read().encode()).hexdigest()
         modname='%s.%s'%(datafile_module,script_module)
-        mod = imp.load_source(modname,script)
-        sys.modules[modname]=mod
+        if modname is sys.modules:
+            mod = sys.modules[modname]
+        else:
+            mod = imp.load_source(modname,script)
+            sys.modules[modname]=mod
         
         plugins = [v for k,v in list(vars(mod).items()) if (isinstance(v,type) and 
                                                       issubclass(v,SlikPlugin) and 

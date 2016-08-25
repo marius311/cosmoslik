@@ -6,7 +6,7 @@ from itertools import product, chain
 from hashlib import md5
 import pickle
 from collections import defaultdict, OrderedDict
-from cosmoslik import SlikSampler, SlikFunction, param, all_kw
+from cosmoslik import SlikSampler, SlikFunction, param, arguments
 from cosmoslik.chains.chains import Chain, Chains, combine_covs
 from cosmoslik.cosmoslik import sample
 import multiprocessing
@@ -93,10 +93,10 @@ class metropolis_hastings(SlikSampler):
     
     To run with MPI, call your script with:
 
-        mpiexec -n <nchains+1> python -m cosmoslik script.py
+        cosmoslik -n <nchains+1> script.py
     
-    (Note one process is a "master," so run one more process than you want chains)
-    """       
+    (Note one process is a "master" so run one more process than you want chains)
+    """
     
     def __init__(self, 
                  params,
@@ -166,7 +166,7 @@ class metropolis_hastings(SlikSampler):
         """
 
         if output_extra_params is None: output_extra_params = []
-        super(metropolis_hastings,self).__init__(**all_kw(locals(),['params']))
+        super().__init__(**arguments(exclude=['params']))
 
         self.output_extra_params = OrderedDict([k if isinstance(k,tuple) else (k,dtype('float').name) for k in output_extra_params])
         self.sampled = params.find_sampled()

@@ -23,6 +23,13 @@ def is_master(): return get_rank()==0
 def get_rank(): return get_mpi().rank
 def get_size(): return get_mpi().size
 
+def get_pool():
+    """
+    Gets a `pool` object which can be passed to things that expect it to have a
+    `pool.map` function.
+    """
+    return namedtuple("mpipool",["map","is_master"])(mpi_map,is_master)
+
 
 def mpi_consistent(value):
     """Returns the value that the root process provided."""
