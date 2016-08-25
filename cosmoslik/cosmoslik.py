@@ -1,8 +1,8 @@
 from collections import OrderedDict
 from functools import reduce
 from importlib import import_module
-from inspect import getmro, getargvalues, stack, getargspec#, signature
-from numpy import inf, nan, hstack, transpose
+from inspect import getmro, getargvalues, stack, getargspec
+from numpy import inf, nan, hstack, transpose, isinf
 from pkgutil import walk_packages
 from uuid import uuid4
 import argparse
@@ -67,11 +67,6 @@ def load_script(script):
                 
     
     return parser, main
-    # return Slik(main(*args,**kwargs))
-    
-    
-    
-    
 
 
 class Slik(object):
@@ -81,6 +76,9 @@ class Slik(object):
         self._sampled = params.find_sampled()
         self.sampler = self.params.sampler
         del self.params.sampler
+        if "priors" not in params:
+            from . import likelihoods
+            params.priors = likelihoods.priors(params)
         
         
     def get_sampled(self):
@@ -126,7 +124,13 @@ class Slik(object):
         else:
             for k,v in zip(list(self.get_sampled().keys()),args): params[k]=v
             
-        return params(), params
+        if isinf(params.priors(params)):
+            # if we've hit any hard priors don't even evaluate this parameter set
+            return inf, params
+        else:
+            # call priors() again since potentially some could depend on derived
+            # parameters which are added only by the __call__
+            return params()+params.priors(params), params
             
             
     def sample(self):
