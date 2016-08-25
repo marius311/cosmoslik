@@ -121,11 +121,11 @@ class Slik(object):
             missing = [k for k in self.get_sampled() if k not in kwargs]
             if len(missing)>0:
                 raise ValueError("Missing the following parameters: %s"%missing)
-            for k,v in list(kwargs.items()): params[k]=v
+            for k,v in kwargs.items(): params[k]=v
         elif len(args)!=len(self.get_sampled()):
             raise ValueError("Expected %i parameters, only got %i."%(len(self.get_sampled()),len(args)))
         else:
-            for k,v in zip(list(self.get_sampled().keys()),args): params[k]=v
+            for k,v in zip(self.get_sampled().keys(),args): params[k]=v
             
         if isinf(params.priors(params)):
             # if we've hit any hard priors don't even evaluate this parameter set
@@ -177,14 +177,16 @@ class SlikDict(dict):
         
     def __setitem__(self,k,v):
         if isinstance(k,str):
-            setattr(reduce(getattr, k.split('.')[:-1], self), k.split('.')[-1], v)
+            *k1, k2 = k.split('.')
+            setattr(reduce(getattr, k1, self), k2, v)
         else:
             raise ValueError("Parameter key must be string, not %s"%type(k))
 
     def deepcopy(self):
         cself = copy.copy(self)
-        for k,v in list(vars(self).items()):
-            if isinstance(v,SlikDict): setattr(cself,k,v.deepcopy())
+        for k,v in vars(self).items():
+            if isinstance(v,SlikDict): 
+                setattr(cself,k,v.deepcopy())
         cself.update(vars(cself))
         cself.__dict__ = cself
         return cself
