@@ -12,9 +12,14 @@ parser.add_argument('script_args', nargs=argparse.REMAINDER, metavar="...", help
 def main():
 
     if args.n:
-        i = sys.argv.index('-n')
-        sys.argv.pop(i); sys.argv.pop(i)
-        os.system("mpiexec -n %i %s -m cosmoslik %s"%(args.n,sys.executable,' '.join(sys.argv[1:])))
+        try:
+            from mpi4py import MPI
+        except Exception as e:
+            raise Exception("Failed to load mpi4py which is needed to run with CosmoSlik '-n'.") from e
+        else:
+            i = sys.argv.index('-n')
+            sys.argv.pop(i); sys.argv.pop(i)
+            os.system("mpiexec -n %i %s -m cosmoslik %s"%(args.n,sys.executable,' '.join(sys.argv[1:])))
         
     elif args.script:
         parser, script = load_script(args.script)
