@@ -98,6 +98,7 @@ class emcee(SlikSampler):
                         isample[iwalker] += 1
                         if isample[iwalker]>=self.output_freq or i==nsteps-1:
                             pickle.dump((iwalker,samples[iwalker][:isample[iwalker]]),_output_file,protocol)
+                            _output_file.flush()
                             isample[iwalker] = 0
                     
                     weight[iwalker] = 1
