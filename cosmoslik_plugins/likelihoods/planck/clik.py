@@ -1,5 +1,6 @@
 from cosmoslik import SlikPlugin, arguments
 from numpy import hstack, zeros, arange, pi, inf, nan
+import os.path as osp
 
 __all__ = ['clik']
 
@@ -7,6 +8,9 @@ __all__ = ['clik']
 # reload them. this won't work if you have the same plugin in different folders,
 # but its better than nothing. 
 loaded_cliks = dict()
+
+# the order in which clik puts the spectra and returns them in get_lmax()
+clik_specs = ['TT','EE','BB','TE','TB','EB']
 
 class clik(SlikPlugin):
     """
@@ -18,7 +22,7 @@ class clik(SlikPlugin):
                  auto_reject_errors=False,
                  **nuisance):
 
-        super().__init__(auto_reject_errors=auto_reject_errors,**nuisance)
+        super().__init__(**arguments())
 
         from clik import clik
         
@@ -30,9 +34,11 @@ class clik(SlikPlugin):
 
     def __call__(self, cmb):
 
-        cl = hstack(tocl(cmb.get(x,zeros(lmax+1)),lmax,x)
-                    for x, lmax in zip(['TT','EE','BB','TE','TB','EB'],self.clik.get_lmax())
-                    if lmax!=-1)
+        for x, lmax in zip(clik_specs,self.clik.get_lmax()):
+            if (lmax!=-1) and ((x not in cmb) or (cmb[x].size<lmax+1)):
+                raise ValueError("Need the %s spectrum to at least lmax=%i for clik file '%s'."%(x,lmax+1,osp.basename(self.clik_file)))
+
+        cl = hstack([tocl(cmb[x][:lmax+1]) for x, lmax in zip(clik_specs,self.clik.get_lmax()) if lmax!=-1])
         nuisance = [self[k] for k in self.clik.get_extra_parameter_names()]
         try:
             lnl = -self.clik(hstack([cl,nuisance]))[0]
@@ -42,8 +48,5 @@ class clik(SlikPlugin):
             if self.auto_reject_errors: return inf
             else: raise
 
-def tocl(dl,lmax,x):
-    if lmax is not None:
-        if dl.size<lmax+1: raise ValueError("Need the %s spectrum to at least lmax=%i for clik."%(x,lmax+1))
-        dl=dl[:lmax+1]
+def tocl(dl):
     return hstack([zeros(2),dl[2:]/arange(2,dl.size)/(arange(2,dl.size)+1)*2*pi])
