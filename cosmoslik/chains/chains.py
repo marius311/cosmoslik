@@ -214,8 +214,8 @@ class Chain(dict):
     def savecov(self,file,params=None):
         """Write the covariance to a file where the first line is specifies the parameter names."""
         if not params: params = self.params()
-        with open(file,'w') as f:
-            f.write("# "+" ".join(params)+"\n")
+        with open(file,'wb') as f:
+            f.write(("# "+" ".join(params)+"\n").encode())
             savetxt(f,self.cov(params))
             
     def savechain(self,file,params=None):
