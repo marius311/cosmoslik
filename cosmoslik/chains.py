@@ -26,7 +26,7 @@ from functools import reduce
 
 __all__ = ['Chain','Chains',
            'like1d','like2d','likegrid','likegrid1d','likepoints',
-           'get_covariance', 'load_chain']
+           'get_covariance', 'load_chain', 'load_cosmomc_chain']
 
 
 class Chain(dict):
@@ -85,6 +85,33 @@ class Chain(dict):
     def std(self,params=None): 
         """Returns the std of the parameters (or some subset of them) in this chain."""
         return sqrt(average((self.matrix(params)-self.mean(params))**2,axis=0,weights=self["weight"]))
+    
+    def skew(self,params=None):
+        """Return skewness of one or more parameters. """
+        return average((self.matrix(params)-self.mean(params))**3,axis=0,weights=self["weight"])/self.std(params)**3
+
+    def confbound(self,param,level=0.95,bound=None):
+        """
+        Compute an upper or lower confidence bound.
+        
+        Args:
+            param (string): name of the parameter
+            level (float): confidence level
+            bound ('upper', 'lower', or None): whether to compute an upper or
+                lower confidence bound. If set to None, will guess which based
+                on the skewness of the distribution (will be lower bound for
+                positively skewed distributions)
+        """       
+        if bound==None:
+            bound = 'upper' if self.skew(param)>0 else 'lower'
+        
+        if bound=='lower':
+            level = 1-level
+            
+        H, x = histogram(self[param],weights=self['weight'],bins=1000)
+        xc = (x[1:]+x[:-1])/2
+        b = interp(level,cumsum(H)/float(H.sum()),xc)
+        return (self[param].min(),b) if bound=='upper' else (b,self[param].max())
     
     def acceptance(self): 
         """Returns the acceptance ratio."""
@@ -280,7 +307,23 @@ class Chain(dict):
     def join(self):
         """Does nothing since already one chain."""
         return self
-
+        
+        
+    def __repr__(self):
+        return self.__str__()
+        
+    def __str__(self):
+        """Print a summary of the chain. """
+        lines = []
+        lines.append(object.__repr__(self))
+        maxlen = max(15,max(len(p) for p in self.params()))
+        for p in sorted(self.params()):
+            lines.append(('{:>%i}  {:>10,.4g} ± {:.4g}'%maxlen).format(p,self.mean(p),self.std(p)))
+        lines.append(('{:>%i}'%maxlen).format('-'*4))
+        lines.append(('{:>%i}  {:>10}'%maxlen).format('number of steps',self.length()))
+        lines.append(('{:>%i}  {:>10,.2f}'%maxlen).format('total weight',self['weight'].sum()))
+        lines.append(('{:>%i}  {:>10,.3g}'%maxlen).format('acceptance',self.acceptance()))
+        return '\n'.join(lines)
         
 class Chains(list):
     """A list of chains, e.g. from a run of several parallel chains"""
@@ -682,7 +725,7 @@ def confint2d(hist,which):
 
 
 
-def load_chain(path,paramnames=None):
+def load_cosmomc_chain(path,paramnames=None):
     """
     Load a chain from a file or files in a variety of different formats.
     
@@ -785,3 +828,28 @@ def combine_covs(*covs):
         allcov[ix_(idxs,idxs)] = cov
     
     return allnames, allcov
+
+
+def load_chain(filename):
+    """
+    Load a chain produced by a compatible CosmoSlik sampler like
+    metropolis_hastings or emcee.
+    """
+    with open(filename, 'rb') as f:
+        c = pickle.load(f)
+        if isinstance(c,(Chain,Chains)): 
+            return c
+        else:
+            names = [n.decode() if isinstance(n,bytes) else n for n in c]
+            dat = []
+            while True:
+                try:
+                    dat.append(pickle.load(f,encoding="latin1"))
+                except:
+                    break
+            ii=set(i for i,_ in dat)
+
+            if dat[0][1].dtype.kind=='V':
+                return Chains([Chain({n:concatenate([d['f%i'%k] for j,d in dat if i==j]) for k,n in enumerate(names)}) for i in ii])
+            else:
+                return Chains([Chain(dict(list(zip(names,vstack([d for j,d in dat if i==j]).T)))) for i in ii])

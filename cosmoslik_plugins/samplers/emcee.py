@@ -1,14 +1,13 @@
 from cosmoslik import *
 from cosmoslik import mpi
-from cosmoslik.chains.chains import combine_covs
+from cosmoslik.chains import combine_covs
 from emcee import EnsembleSampler
 from collections import OrderedDict, namedtuple
 from numpy import ix_, zeros, ceil, hstack, dtype, empty, ones
 from numpy.random import multivariate_normal
+from .utils import initialize_covariance
 import pickle
 from itertools import chain
-
-mcmcsample = namedtuple("mcmcsample",["weight","lnl","x"])
 
 class emcee(SlikSampler):
     
@@ -17,7 +16,7 @@ class emcee(SlikSampler):
         params,
         num_samples,
         nwalkers=100,
-        proposal_cov=None,
+        cov_est=None,
         output_extra_params=None,
         output_file=None,
         output_freq=10
@@ -29,26 +28,9 @@ class emcee(SlikSampler):
         self.output_extra_params = OrderedDict([k if isinstance(k,tuple) else (k,dtype('float').name) for k in output_extra_params])
         self.sampled = params.find_sampled()
         self.x0 = [params[k].start for k in self.sampled]
-        self.proposal_cov = self.initialize_covariance(self.sampled)
+        self.cov_est = initialize_covariance(self.sampled, self.cov_est)
         self.pool = mpi.get_pool() if mpi.get_size()>1 else None
     
-    def initialize_covariance(self, sampled):
-        """
-        Prepare the proposal covariance based on anything passed to
-        self.proposal_cov, defaulting to the `scale` of each sampled parameter
-        otherwise.
-        """
-        in_covs = [{k:v.scale for k,v in list(sampled.items()) if hasattr(v,'scale')}]
-        if self.proposal_cov is not None:
-            in_covs += (self.proposal_cov if isinstance(self.proposal_cov,list) else [self.proposal_cov])
-        names, covs = combine_covs(*in_covs)
-        
-        missing = [s for s in sampled if s not in names]
-        if missing:
-            raise ValueError("Parameters %s not in covariance and no scale given."%missing)
-        
-        idxs = [names.index(s) for s in sampled]
-        return covs[ix_(idxs,idxs)]
                  
     def sample(self, lnl):
         
@@ -67,7 +49,7 @@ class emcee(SlikSampler):
         # distribute walkers initially according to covariance estimate
         pos = multivariate_normal(
             [v.start for v in self.sampled.values()],
-            self.proposal_cov,
+            self.cov_est,
             size=self.nwalkers
         )
         
@@ -89,7 +71,7 @@ class emcee(SlikSampler):
                 if (x==xnext).all() and i!=nsteps-1: 
                     weight[iwalker] += 1
                 else:
-                    yield mcmcsample(weight[iwalker],-l,x)
+                    yield sample(-l,x,weight[iwalker])
                     
                     # write to file once every `self.output_freq` accepted steps (per walker)
                     if self.output_file and mpi.is_master():

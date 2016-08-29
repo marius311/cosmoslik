@@ -12,7 +12,7 @@ from hashlib import md5
 
 __all__ = ['load_script','Slik','SlikFunction',
            'SlikDict','SlikPlugin','SlikSampler','param','param_shortcut','get_all_plugins',
-           'lsum','lsumk','all_kw','run_chain','SlikMain', 'arguments', 'get_caller']           
+           'lsum','lsumk','run_chain','SlikMain', 'arguments', 'get_caller', 'sample']           
 
 """ Loaded datafiles will reside in this empty module. """
 datafile_module = 'cosmoslik.scripts'
@@ -218,15 +218,24 @@ class SlikDict(dict):
 
 
 class param(object):
+    """
+    Marks a parameter to be sampled by the MCMC. 
+    """
     def __init__(self,**kwargs):
+        super().__init__()
         self.__dict__.update(kwargs)
 
 
 class sample(object):
-    def __init__(self,x,lnl,extra):
+    """
+    A SlikSampler's sample method should yield objects of this type. 
+    """
+    def __init__(self, x, lnl, weight=1, extra=None):
+        super().__init__()
         self.x = x
         self.lnl = lnl
         self.extra = extra
+        self.weight = weight
 
 
 
@@ -296,7 +305,7 @@ class SlikSampler(SlikDict):
     
     def sample(self,lnl):
         raise NotImplementedError()
-    
+        
     
     
 def get_all_plugins(ignore_import_errors=True):
@@ -423,15 +432,6 @@ def param_shortcut(*args):
             
     return param_shortcut
 
-
-
-def all_kw(ls,exclusions=None):
-    for k in (['self','args','kwargs'] 
-              + (exclusions if exclusions is not None else [])):
-        ls.pop(k,None)
-    return ls
-    
-    
     
 def get_caller(depth=1):
     """
