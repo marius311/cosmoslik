@@ -314,16 +314,24 @@ class Chain(dict):
         
     def __str__(self):
         """Print a summary of the chain. """
-        lines = []
-        lines.append(object.__repr__(self))
-        maxlen = max(15,max(len(p) for p in self.params()))
-        for p in sorted(self.params()):
-            lines.append(('{:>%i}  {:>10,.4g} ± {:.4g}'%maxlen).format(p,self.mean(p),self.std(p)))
-        lines.append(('{:>%i}'%maxlen).format('-'*4))
-        lines.append(('{:>%i}  {:>10}'%maxlen).format('number of steps',self.length()))
-        lines.append(('{:>%i}  {:>10,.2f}'%maxlen).format('total weight',self['weight'].sum()))
-        lines.append(('{:>%i}  {:>10,.3g}'%maxlen).format('acceptance',self.acceptance()))
-        return '\n'.join(lines)
+        return chain_stats(self)
+        
+        
+def chain_stats(chain):
+    lines = []
+    lines.append(object.__repr__(chain))
+    maxlen = max(12,max(len(p) for p in chain.params()))+4
+    if isinstance(chain,Chains):
+        lines.append(('{:>%i}:  {:}'%maxlen).format('# of chains',len(chain)))
+        chain = chain.join()
+    lines.append(('{:>%i}:  {:}'%maxlen).format('# of steps',chain.length()))
+    lines.append(('{:>%i}:  {:.2f}'%maxlen).format('total weight',chain['weight'].sum()))
+    lines.append(('{:>%i}:  {:.3g}'%maxlen).format('acceptance',chain.acceptance()))
+    for p in sorted(chain.params()):
+        lines.append(('{:>%i}:  {:>10.4g} ± {:.4g}'%maxlen).format(p,chain.mean(p),chain.std(p)))
+    return '\n'.join(lines)
+
+    
         
 class Chains(list):
     """A list of chains, e.g. from a run of several parallel chains"""
@@ -343,6 +351,16 @@ class Chains(list):
         if fig is None: fig=figure()
         for c in self: 
             if c: c.plot(param,fig=fig,**kwargs)
+            
+    def params(self):
+        return self[0].params()
+            
+    def __repr__(self):
+        return self.__str__()
+        
+    def __str__(self):
+        """Print a summary of the chain. """
+        return chain_stats(self)
 
 
 def _postprocd_helper(func,kwargs):
@@ -447,8 +465,8 @@ def get_covariance(data,weights=None):
 
 
 def likegrid(chains, params=None, 
-             lims=None, ticks=None, nticks=5,
-             default_chain=0,
+             lims=None, ticks=None, nticks=4,
+             nsig=4,
              spacing=0.05,
              xtick_rotation=30,
              colors=None, filled=True,
@@ -529,8 +547,11 @@ def likegrid(chains, params=None,
     if not isinstance(nbins1d,list): nbins1d = [nbins1d]*len(chains)
     fig.subplots_adjust(hspace=spacing,wspace=spacing)
     
-    c=chains[default_chain] if isinstance(default_chain,int) else default_chain
-    lims = dict({p:(max(min(c[p]),mean(c[p])-4*std(c[p])),min(max(c[p]),mean(c[p])+4*std(c[p]))) for p in params},**(lims if lims is not None else {}))
+    if lims is None: lims = {}
+    lims = {p:(lims[p] if p in lims 
+               else (min(max(min(c[p]),c.mean(p)-nsig*c.std(p)) for c in chains if p in c.params()),
+                     max(min(max(c[p]),c.mean(p)+nsig*c.std(p)) for c in chains if p in c.params()))) 
+            for p in params}
     if ticks is None: ticks = {}
     if isinstance(nticks,int): nticks={p:nticks for p in params}
 
@@ -545,7 +566,7 @@ def likegrid(chains, params=None,
                 if (i==j): 
                     for (ch,col,nbins) in zip(chains,colors,nbins1d): 
                         if p1 in ch: ch.like1d(p1,nbins=nbins,color=col,ax=ax)
-                    ax.set_yticks([])
+                    ax.set_yticklabels([])
                     
                 elif (i<j): 
                     for (ch,col,nbins) in zip(chains,colors,nbins2d): 
@@ -565,7 +586,9 @@ def likegrid(chains, params=None,
                     ax.set_xticklabels([])
                     
     if labels is not None:
-        fig.legend([Line2D([0],[0],c=c,lw=2) for c in colors],labels,fancybox=True,shadow=False,loc=legend_loc)
+        fig.legend([Line2D([0],[0],c=c,lw=2) for c in colors],labels,
+                   fancybox=True,shadow=False,
+                   loc='upper right', bbox_to_anchor=(legend_loc or (0.8,0.8)))
 
 
 from collections import Iterable
@@ -657,7 +680,7 @@ def likegrid1d(chains,
 
 
     """
-    from matplotlib.pyplot import figure, Line2D
+    from matplotlib.pyplot import gcf, Line2D
     from matplotlib.ticker import AutoMinorLocator, ScalarFormatter, MaxNLocator
 
     if type(chains)!=list: chains=[chains]
@@ -668,22 +691,24 @@ def likegrid1d(chains,
         raise ValueError("params should be iterable or 'all' or 'common'")
                          
     if param_name_mapping is None: param_name_mapping = {}
-    nrow = len(params)/ncol+1
-    if axes is None:
-        if fig is None: fig = figure(fig) if isinstance(fig,int) else figure()
-        if size is not None: fig.set_size_inches(size*ncol,size*nrow/aspect)
-        fig.subplots_adjust(hspace=0.4,wspace=0.1)
-    if colors is None: colors=['b','orange','k','m','cyan']
+    nrow = int(floor(len(params)/ncol))+1
+    if fig is None:
+        fig = gcf()
+        fig.subplots_adjust(hspace=0.4,wspace=0.1)#,bottom=0, top=1, left=0, right=1)
+        if size is not None: 
+            fig.set_size_inches(size*ncol,size*nrow/aspect)
+                            
+    if colors is None: 
+        colors = ['b','orange','k','m','cyan']
        
     if lims is None: lims = {}
     lims = {p:(lims[p] if p in lims 
-               else (min(max(min(c[p]),mean(c[p])-nsig*std(c[p])) for c in chains if p in c.params()),
-                     max(min(max(c[p]),mean(c[p])+nsig*std(c[p])) for c in chains if p in c.params()))) 
+               else (min(max(min(c[p]),c.mean(p)-nsig*c.std(p)) for c in chains if p in c.params()),
+                     max(min(max(c[p]),c.mean(p)+nsig*c.std(p)) for c in chains if p in c.params()))) 
             for p in params}
     
-    n=len(params)
-    for (i,p1) in enumerate(params,0 if axes is not None else 2 if labels is not None else 1):
-        ax=axes[i] if axes is not None else fig.add_subplot(nrow,ncol,i)
+    for (i,p1) in enumerate(params,1):
+        ax=fig.add_subplot(nrow,ncol,i)
         if ticks is not None and p1 in ticks:
             ax.set_xticks(ticks[p1])
         for (ch,col) in zip(chains,colors):
@@ -701,8 +726,9 @@ def likegrid1d(chains,
         ax.xaxis.set_major_formatter(ScalarFormatter(useOffset=False))
 
     if labels is not None:
-        fig.legend([Line2D([0],[0],c=c,linewidth=3) for c in colors],labels,fancybox=True,shadow=False,
-                   loc=legend_loc if legend_loc is not None else (0,1-1./nrow))
+        lg = fig.legend([Line2D([0],[0],c=c,linewidth=2) for c in colors],labels,fancybox=True,shadow=False,
+                   loc='upper center', bbox_to_anchor=(legend_loc or (0.5,1.1)))
+        return lg
         
         
 def confint2d(hist,which):
