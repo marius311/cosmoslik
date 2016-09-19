@@ -477,7 +477,8 @@ def likegrid(chains, params=None,
              spacing=0.05,
              xtick_rotation=30,
              colors=None, filled=True,
-             nbins1d=30, nbins2d=20,
+             nbins1d=30, smooth1d=False,
+             nbins2d=20,
              labels=None,
              fig=None,
              size=2,
@@ -572,7 +573,7 @@ def likegrid(chains, params=None,
                 ax.set_xlim(*lims[p1])
                 if (i==j): 
                     for (ch,col,nbins) in zip(chains,colors,nbins1d): 
-                        if p1 in ch: ch.like1d(p1,nbins=nbins,color=col,ax=ax)
+                        if p1 in ch: ch.like1d(p1,nbins=nbins,color=col,ax=ax,smooth=smooth1d)
                     ax.set_yticklabels([])
                     
                 elif (i<j): 
@@ -609,6 +610,7 @@ def likegrid1d(chains,
                nsig=3,
                colors=None,
                nbins1d=30,
+               smooth1d=False,
                labels=None,
                fig=None,
                size=2,
@@ -719,7 +721,7 @@ def likegrid1d(chains,
         if ticks is not None and p1 in ticks:
             ax.set_xticks(ticks[p1])
         for (ch,col) in zip(chains,colors):
-            if p1 in ch: ch.like1d(p1,nbins=nbins1d,color=col,ax=ax,linewidth=linewidth)
+            if p1 in ch: ch.like1d(p1,nbins=nbins1d,color=col,ax=ax,linewidth=linewidth,smooth=smooth1d)
         ax.set_yticks([])
         ax.set_xlim(lims[p1])
         ax.set_ylim(0,1)
