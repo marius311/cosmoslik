@@ -436,7 +436,7 @@ def like2d(datx,daty,weights=None,
     
 def like1d(dat,weights=None,
            nbins=30,range=None,maxed=True,
-           ax=None,
+           ax=None,smooth=False,
            **kw):
     from matplotlib.pyplot import gca
     from matplotlib.mlab import movavg
@@ -445,6 +445,13 @@ def like1d(dat,weights=None,
     H, xe = histogram(dat,bins=nbins,weights=weights,normed=True,range=range)
     if maxed: H=H/max(H)
     xem=movavg(xe,2)
+    
+    if smooth:
+        from scipy.interpolate import PchipInterpolator
+        itp = PchipInterpolator(xem,H)
+        xem = linspace(xem.min(),xem.max(),100)
+        H = itp(xem)
+    
     ax.plot(xem,H,**kw)
 
 def get_correlation(data,weights=None):
