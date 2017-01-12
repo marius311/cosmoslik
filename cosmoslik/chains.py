@@ -162,10 +162,9 @@ class Chain(dict):
         mp=map if _pool is None else _pool.map
 
         try:
-            dat = mp(partial(_postprocd_helper,func),self.iterrows())
+            dat = list(mp(partial(_postprocd_helper,func),self.iterrows()))
         finally:
             if pool is None and _pool is not None: _pool.terminate()
-
         c=self.copy()
         allkeys = set(chain(*[list(d.keys()) for d in dat]))
         c.update({k:array([d.get(k,nan) for d in dat]) for k in allkeys})
