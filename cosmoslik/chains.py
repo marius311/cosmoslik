@@ -436,6 +436,7 @@ def like2d(datx,daty,weights=None,
 def like1d(dat,weights=None,
            nbins=30,range=None,maxed=True,
            ax=None,smooth=False,
+           zero_endpoints=False,
            **kw):
     from matplotlib.pyplot import gca
     from matplotlib.mlab import movavg
@@ -450,6 +451,10 @@ def like1d(dat,weights=None,
         itp = PchipInterpolator(xem,H)
         xem = linspace(xem.min(),xem.max(),100)
         H = itp(xem)
+        
+    if zero_endpoints:
+        xem = hstack([[xem[0]],xem,[xem[-1]]])
+        H = hstack([[0],H,[0]])
     
     ax.plot(xem,H,**kw)
 
