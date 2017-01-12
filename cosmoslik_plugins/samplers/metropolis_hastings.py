@@ -38,6 +38,7 @@ class metropolis_hastings(SlikSampler):
                  proposal_update=True,
                  proposal_update_start=1000,
                  mpi_comm_freq=100,
+                 max_weight=10,
                  debug_output=False,
                  temp=1,
                  reseed=True,
@@ -85,6 +86,9 @@ class metropolis_hastings(SlikSampler):
                 Number of accepted samples to wait inbetween the chains
                 communicating with the master process and having their progress
                 written to file (default: 50)
+            max_weight:
+                If a the chain stays in the same location more than this number of samples, 
+                it is broken up as distinct steps
             reseed: 
                 Draw a random seed based on system time and process number
                 before starting. (default: True) 
@@ -150,6 +154,10 @@ class metropolis_hastings(SlikSampler):
             else:
                 if self.yield_rejected: yield(sample(test_x,test_lnl,0,test_extra))
                 cur_weight += 1
+                
+                if cur_weight >= self.max_weight:
+                    yield(sample(cur_x, cur_lnl, cur_weight, cur_extra))
+                    cur_weight = 0
                 
     def _print_chain_stats(self,rank,samples):
         acc = sum(1 for s in samples['f1'] if s>0)
