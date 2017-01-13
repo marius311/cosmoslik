@@ -21,7 +21,7 @@ class priors(SlikPlugin):
         self.uniform_priors.append((param,min,max))
     
     def __call__(self,params):
-        param_ok = lambda n: not (isinstance(params.get(n),param))
+        param_ok = lambda n: n in params and not isinstance(params[n],param)
         for n, lower, upper in self.uniform_priors:
             if param_ok(n) and not (lower<=params[n]<=upper): 
                 return inf
