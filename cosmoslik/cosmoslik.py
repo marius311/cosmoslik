@@ -1,14 +1,19 @@
+import argparse
+import copy
+import hashlib
+import imp
+import os
+import pkgutil
+import sys
+import time
 from collections import OrderedDict
 from functools import reduce
-from importlib import import_module
-from inspect import getmro, getargvalues, stack, getargspec
-from numpy import inf, nan, hstack, transpose, isinf
-from pkgutil import walk_packages
-import argparse
-import copy, pkgutil, sys, os
-import imp, hashlib, time
 from hashlib import md5
+from importlib import import_module
+from inspect import getargspec, getargvalues, getmro, stack
+from pkgutil import walk_packages
 
+from numpy import hstack, inf, isinf, nan, transpose
 
 __all__ = ['load_script','Slik','SlikFunction',
            'SlikDict','SlikPlugin','SlikSampler','param','param_shortcut','get_all_plugins',
@@ -66,7 +71,7 @@ def load_script(script):
                                     type=(type(default[0]) if len(default)>0 else None),
                                     help="default: "+str(default))
             else:
-                parser.add_argument("--"+name, default=default, type=type(default), help="default: "+str(default))
+                parser.add_argument("--"+name, default=default, type=(type(default) if default is not None else None), help="default: "+str(default))
                 
     
     return parser, main
