@@ -35,7 +35,7 @@ class Chain(dict):
     to arrays of values, along with the special keys 'lnl' and 'weight'
     """
     def __init__(self,*args,**kwargs):
-        super(Chain,self).__init__(*args,**kwargs)
+        super().__init__(*args,**kwargs)
         for k,v in list(self.items()): self[k]=atleast_1d(v)
         if self and 'weight' not in self: self['weight']=ones(len(list(self.values())[0]))
         
