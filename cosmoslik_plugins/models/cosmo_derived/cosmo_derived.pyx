@@ -8,7 +8,7 @@ from cosmoslik import SlikPlugin
 from libc.math cimport sqrt, exp, M_PI as pi, sin, sinh, INFINITY as inf, NAN as nan
 from scipy.integrate import quad, romberg, quadrature
 from scipy.optimize import brentq
-from cosmoslik_plugins.utils.cyquad.cyquad cimport cyquad, cyquadfunc
+from cosmoslik_plugins.misc.cyquad.cyquad cimport cyquad, cyquadfunc
 
 
 
