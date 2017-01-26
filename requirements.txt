@@ -1,6 +1,7 @@
 CommonMark>=0.5.4
 docutils>=0.12
 ipython>=5
+jupyter-client>=4
 nbsphinx>=0.2.9
 numpy>=1.11.0
 pandoc>=1.0.0b2
