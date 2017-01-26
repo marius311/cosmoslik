@@ -2,7 +2,7 @@
 
 CosmoSlik has the following requirements:
 
-* Python 3.3
+* Python >= 3.3
 * Cython >= 0.16
 * numpy >= 1.11.0
 * scipy >= 0.17.0
