@@ -141,7 +141,7 @@ class metropolis_hastings(SlikSampler):
 
         self.check_seed()
        
-        cur_lnl, cur_weight, cur_x, cur_extra = inf, 0, x0, None
+        cur_weight, cur_x, (cur_lnl, cur_extra) = 0, x0, lnl(*x0)
         
         for _ in range(int(self.num_samples/float(max(1,mpi.get_size()-1)))):
             test_x = multivariate_normal(cur_x,self.cov_est/len(x0)*self.proposal_scale**2)
