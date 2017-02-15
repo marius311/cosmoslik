@@ -8,3 +8,4 @@ CosmoSlik is a simple but powerful tool to quickly put together, run, and analyz
 
 * **Documentation:** [cosmoslik.readthedocs.io](http://cosmoslik.readthedocs.io)
 * **Source code:** [github.com/marius311/cosmoslik](https://www.github.com/marius311/cosmoslik)
+* **Citing:** [http://ascl.net/code/v/1601](http://ascl.net/code/v/1601)
