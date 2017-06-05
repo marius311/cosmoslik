@@ -104,6 +104,8 @@ class metropolis_hastings(SlikSampler):
         self.output_extra_params = OrderedDict([k if isinstance(k,tuple) else (k,dtype('float').name) for k in output_extra_params])
         self.sampled = params.find_sampled()
         self.x0 = [params[k].start for k in self.sampled]
+        self.mins = array([getattr(params[k],'min',-inf) for k in self.sampled])
+        self.maxs = array([getattr(params[k],'max',inf) for k in self.sampled])
         self.cov_est = initialize_covariance(self.sampled,self.cov_est)
 
     
@@ -119,7 +121,9 @@ class metropolis_hastings(SlikSampler):
             x - the vector of parameter values
             extra - the extra information returned by lnl
         """
-        if mpi.is_master() and self.print_level>=1: print('Starting MCMC chain...')
+        if mpi.is_master() and self.print_level>=1: 
+            if self.output_file:
+                print('Starting MCMC chain' + (' (%s)'%self.output_file if self.output_file else '') + '...')
         return self._mpi_mcmc(self.x0,lnl)
     
     
@@ -136,6 +140,11 @@ class metropolis_hastings(SlikSampler):
         if self.reseed: 
             seed(int(md5((str(time.time())+str(multiprocessing.current_process().pid)).encode('utf-8')).hexdigest()[:8],base=16))
 
+    def draw_x(self,cur_x):
+        x = None
+        while x is None or any(x<self.mins) or any(x>self.maxs):
+            x = multivariate_normal(cur_x,self.cov_est/len(self.x0)*self.proposal_scale**2)
+        return x
 
     def _mcmc(self,x0,lnl):
 
@@ -144,7 +153,7 @@ class metropolis_hastings(SlikSampler):
         cur_weight, cur_x, (cur_lnl, cur_extra) = 0, x0, lnl(*x0)
         
         for _ in range(int(self.num_samples/float(max(1,mpi.get_size()-1)))):
-            test_x = multivariate_normal(cur_x,self.cov_est/len(x0)*self.proposal_scale**2)
+            test_x = self.draw_x(cur_x)
             test_lnl, test_extra = lnl(*test_x)
                     
             if (log(uniform()) < self.temp*(cur_lnl-test_lnl)):
