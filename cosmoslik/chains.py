@@ -43,14 +43,18 @@ class Chain(dict):
         """Deep copy the chain so post-processing, etc... works right"""
         return Chain({k:v.copy() for k,v in self.items()})
         
-    def params(self,non_numeric=False): 
+    def params(self,non_numeric=False, fixed=False): 
         """
         Returns the parameters in this chain (i.e. the keys except 'lnl' and 'weight')
         Args:
             numeric: whether to include non-numeric parameters (default: False)
+            fixed: whether to include parameters which don't vary (default: False)
         """
         return (set([k for k,v in list(self.items()) if 
-                    (not k.startswith('_') and (non_numeric or (v.ndim==1 and issubclass(v.dtype.type,Number))))])
+                    (not k.startswith('_') 
+                     and (non_numeric or (v.ndim==1 and issubclass(v.dtype.type,Number)))
+                     and (fixed or not all(v==v[0]))
+                     )])
                 -set(["lnl","weight"]))
     
     def sample(self,s,keys=None): 
@@ -319,14 +323,15 @@ class Chain(dict):
 def chain_stats(chain):
     lines = []
     lines.append(object.__repr__(chain))
-    maxlen = max(12,max(len(p) for p in chain.params()))+4
+    params = chain.params(fixed=True)
+    maxlen = max(12,max(len(p) for p in params))+4
     if isinstance(chain,Chains):
         lines.append(('{:>%i}:  {:}'%maxlen).format('# of chains',len(chain)))
         chain = chain.join()
     lines.append(('{:>%i}:  {:}'%maxlen).format('# of steps',chain.length()))
     lines.append(('{:>%i}:  {:.2f}'%maxlen).format('total weight',chain['weight'].sum()))
     lines.append(('{:>%i}:  {:.3g}'%maxlen).format('acceptance',chain.acceptance()))
-    for p in sorted(chain.params()):
+    for p in sorted(params):
         lines.append(('{:>%i}:  {:>10.4g} ± {:.4g}'%maxlen).format(p,chain.mean(p),chain.std(p)))
     return '\n'.join(lines)
 
@@ -351,8 +356,8 @@ class Chains(list):
         for c in self: 
             if c: c.plot(param,fig=fig,**kwargs)
             
-    def params(self):
-        return self[0].params()
+    def params(self,**kwargs):
+        return self[0].params(**kwargs)
             
     def __repr__(self):
         return self.__str__()
