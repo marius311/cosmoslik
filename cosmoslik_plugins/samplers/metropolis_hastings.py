@@ -104,8 +104,6 @@ class metropolis_hastings(SlikSampler):
         self.output_extra_params = OrderedDict([k if isinstance(k,tuple) else (k,dtype('float').name) for k in output_extra_params])
         self.sampled = params.find_sampled()
         self.x0 = [params[k].start for k in self.sampled]
-        self.mins = array([getattr(params[k],'min',-inf) for k in self.sampled])
-        self.maxs = array([getattr(params[k],'max',inf) for k in self.sampled])
         self.cov_est = initialize_covariance(self.sampled,self.cov_est)
 
     
@@ -141,10 +139,7 @@ class metropolis_hastings(SlikSampler):
             seed(int(md5((str(time.time())+str(multiprocessing.current_process().pid)).encode('utf-8')).hexdigest()[:8],base=16))
 
     def draw_x(self,cur_x):
-        x = None
-        while x is None or any(x<self.mins) or any(x>self.maxs):
-            x = multivariate_normal(cur_x,self.cov_est/len(self.x0)*self.proposal_scale**2)
-        return x
+        return multivariate_normal(cur_x,self.cov_est/len(self.x0)*self.proposal_scale**2)
 
     def _mcmc(self,x0,lnl):
 
