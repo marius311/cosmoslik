@@ -22,6 +22,7 @@ from functools import partial
 from multiprocessing.pool import Pool
 from numbers import Number
 from functools import reduce
+from subprocess import check_output, CalledProcessError
 
 
 __all__ = ['Chain','Chains',
@@ -874,10 +875,20 @@ def combine_covs(*covs):
     return allnames, allcov
 
 
-def load_chain(filename):
+def load_chain(filename, repack=True):
     """
     Load a chain produced by a compatible CosmoSlik sampler like
     metropolis_hastings or emcee.
+    
+    
+    Parameters:
+    -----------
+    repack : 
+        If the chain file is not currently open (i.e. the chain is not currently
+        running), and if the chain is stored in chunks as output from an MPI run,
+        then overwrite the file with a more efficiently stored version which
+        will be faster to load the next time. 
+    
     """
     with open(filename, 'rb') as f:
         c = pickle.load(f)
@@ -894,6 +905,22 @@ def load_chain(filename):
             ii=set(i for i,_ in dat)
 
             if dat[0][1].dtype.kind=='V':
-                return Chains([Chain({n:concatenate([d['f%i'%k] for j,d in dat if i==j]) for k,n in enumerate(names)}) for i in ii])
+                c = Chains([Chain({n:concatenate([d['f%i'%k] for j,d in dat if i==j]) for k,n in enumerate(names)}) for i in ii])
             else:
-                return Chains([Chain(dict(list(zip(names,vstack([d for j,d in dat if i==j]).T)))) for i in ii])
+                c = Chains([Chain(dict(list(zip(names,vstack([d for j,d in dat if i==j]).T)))) for i in ii])
+                
+    if repack:
+        try:
+            open_files = check_output(["lsof","--",filename]).splitlines()[1:]
+        except CalledProcessError as e:
+            if e.returncode == 1 and e.output==b'':
+                open_files = []
+            else:
+                return c
+            
+        if not any([l.split()[3].decode()[-1] in "uw" for l in open_files]):
+            with open(filename,'wb') as f:
+                pickle.dump(c,f)
+                print("Repacked: "+filename)
+                
+    return c
