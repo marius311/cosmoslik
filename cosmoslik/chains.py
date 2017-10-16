@@ -442,21 +442,35 @@ def like2d(datx,daty,weights=None,
 def like1d(dat,weights=None,
            nbins=30,range=None,maxed=True,
            ax=None,smooth=False,
+           kde=True,
            zero_endpoints=False,
            **kw):
-    from matplotlib.pyplot import gca
-    from matplotlib.mlab import movavg
-    if ax is None: ax = gca()   
-    if weights is None: weights=ones(len(dat))
-    H, xe = histogram(dat,bins=nbins,weights=weights,normed=True,range=range)
-    if maxed: H=H/max(H)
-    xem=movavg(xe,2)
     
-    if smooth:
-        from scipy.interpolate import PchipInterpolator
-        itp = PchipInterpolator(xem,H)
-        xem = linspace(xem.min(),xem.max(),100)
-        H = itp(xem)
+    from matplotlib.pyplot import gca
+    if ax is None: ax = gca()
+    
+    if kde:
+        try:
+            from getdist import MCSamples
+        except ImportError as e:
+            raise Exception("Plotting with kde, kde1d, or kde2d set to True requires package 'getdist'. Install this package or set to False.") from e
+        
+        d = MCSamples(samples=dat, weights=weights).get1DDensity(0)
+        d.normalize('max' if maxed else 'integral')
+        xem, H = d.x, d.P
+        
+    else:
+    
+        from matplotlib.mlab import movavg
+        H, xe = histogram(dat,bins=nbins,weights=weights,normed=True,range=range)
+        if maxed: H=H/max(H)
+        xem=movavg(xe,2)
+        
+        if smooth:
+            from scipy.interpolate import PchipInterpolator
+            itp = PchipInterpolator(xem,H)
+            xem = linspace(xem.min(),xem.max(),100)
+            H = itp(xem)
         
     if zero_endpoints:
         xem = hstack([[xem[0]],xem,[xem[-1]]])
@@ -487,7 +501,7 @@ def likegrid(chains, params=None,
              spacing=0.05,
              xtick_rotation=30,
              colors=None, filled=True,
-             nbins1d=30, smooth1d=False,
+             nbins1d=30, smooth1d=False, kde1d=True,
              nbins2d=20,
              labels=None,
              fig=None,
@@ -583,7 +597,7 @@ def likegrid(chains, params=None,
                 ax.set_xlim(*lims[p1])
                 if (i==j): 
                     for (ch,col,nbins) in zip(chains,colors,nbins1d): 
-                        if p1 in ch: ch.like1d(p1,nbins=nbins,color=col,ax=ax,smooth=smooth1d)
+                        if p1 in ch: ch.like1d(p1,nbins=nbins,color=col,ax=ax,smooth=smooth1d,kde=kde1d)
                     ax.set_yticklabels([])
                     
                 elif (i<j): 
@@ -621,6 +635,7 @@ def likegrid1d(chains,
                colors=None,
                nbins1d=30,
                smooth1d=False,
+               kde1d=True,
                labels=None,
                fig=None,
                size=2,
@@ -731,7 +746,7 @@ def likegrid1d(chains,
         if ticks is not None and p1 in ticks:
             ax.set_xticks(ticks[p1])
         for (ch,col) in zip(chains,colors):
-            if p1 in ch: ch.like1d(p1,nbins=nbins1d,color=col,ax=ax,linewidth=linewidth,smooth=smooth1d)
+            if p1 in ch: ch.like1d(p1,nbins=nbins1d,color=col,ax=ax,linewidth=linewidth,smooth=smooth1d,kde=kde1d)
         ax.set_yticks([])
         ax.set_xlim(lims[p1])
         ax.set_ylim(0,1)
