@@ -235,7 +235,7 @@ class Chain(dict):
         
     def thin(self,delta):
         """Take every delta non-unique samples."""
-        c=ceil(cumsum([0]+self['weight'])/float(delta))
+        c=ceil(cumsum(append(0,self["weight"]))/float(delta))
         ids=where(c[1:]>c[:-1])[0]
         weight=diff(c[[0]+list(ids+1)])
         t=self.sample(ids)
