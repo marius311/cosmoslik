@@ -22,7 +22,7 @@ from functools import partial
 from multiprocessing.pool import Pool
 from numbers import Number
 from functools import reduce
-from subprocess import check_output, CalledProcessError
+from subprocess import check_output, CalledProcessError, STDOUT
 
 
 __all__ = ['Chain','Chains',
@@ -911,7 +911,7 @@ def load_chain(filename, repack=True):
                 
     if repack:
         try:
-            open_files = check_output(["lsof","--",filename]).splitlines()[1:]
+            open_files = check_output(["lsof","--",filename], stderr=STDOUT).splitlines()[1:]
         except CalledProcessError as e:
             if e.returncode == 1 and e.output==b'':
                 open_files = []
