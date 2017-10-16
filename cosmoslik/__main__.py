@@ -19,11 +19,23 @@ def main():
         else:
             i = sys.argv.index('-n')
             sys.argv.pop(i); sys.argv.pop(i)
-            os.system("mpiexec -n %i %s -m cosmoslik %s"%(args.n,sys.executable,' '.join(sys.argv[1:])))
+            os.system("mpiexec -n %i %s -m cosmoslik %s"%(args.n,sys.executable,' '.join(map(escape_string,sys.argv[1:]))))
         
     elif args.script:
         parser, script = load_script(args.script)
         for _ in Slik(script(**vars(parser.parse_args(args.script_args)))).sample(): pass
+
+def escape_string(s):
+    """
+    Returns string with appropriate characters escaped so that it can be
+    passed as a shell argument.
+    """
+    try:
+        from subprocess import check_output
+        return check_output(["bash","-c",'printf "%q" "$@"','_', s]).decode()
+    except Exception as e:
+        print("WARNING: `cosmoslik -n ...` may not work properly because of: \n"+str(e))
+        return s
 
 
 if not sys.argv[1:]: parser.print_help()
