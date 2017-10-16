@@ -875,7 +875,7 @@ def combine_covs(*covs):
     return allnames, allcov
 
 
-def load_chain(filename, repack=True):
+def load_chain(filename, repack=False):
     """
     Load a chain produced by a compatible CosmoSlik sampler like
     metropolis_hastings or emcee.
