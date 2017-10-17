@@ -835,7 +835,7 @@ def load_cosmomc_chain(path,paramnames=None):
                 # if we have a *.paramnames file at this point, load it
                 if isinstance(paramnames,str):
                     with open(paramnames) as f:
-                        names = ['weight','lnl']+[line.split()[0] for line in f]
+                        paramnames = ['weight','lnl']+[line.split()[0] for line in f]
                         
                 with open(path) as f:
                     
