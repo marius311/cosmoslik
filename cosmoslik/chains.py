@@ -802,6 +802,7 @@ def load_cosmomc_chain(path,paramnames=None):
     
     If ``path`` is a prefix such that there exists <path>_1, <path>_2, etc... 
     then returns a :class:`~cosmoslik.chains.Chains` object which is a list of chains.
+    
     """
     
     if path.endswith('.ini'): 
@@ -809,30 +810,49 @@ def load_cosmomc_chain(path,paramnames=None):
         return load_chain(p['output_file'])
     else:
         def load_one_chain(path):
+            
+            nonlocal paramnames
+            
             if os.path.isdir(path):
-                if paramnames!=None: raise Exception("Can't specify custom parameter names if loading chain from a directory.")
+                
+                if paramnames is not None: raise Exception("Can't specify custom parameter names if loading chain from a directory.")
                 chain = {}
                 for k in os.listdir(path):
                     try: chain[k]=loadtxt(os.path.join(path,k),usecols=[-1])
                     except: pass
                 return Chain(chain)
-            else:
-                names = None
-                if paramnames==None:
-                    pnfiles = [os.path.join(os.path.dirname(path),f) for f in os.listdir(os.path.dirname(path)) if f.endswith('.paramnames') and os.path.basename(path).startswith(f[:-len('.paramnames')])]
-                    if len(pnfiles)>1: raise Exception('Found multiple paramnames files for this chain; %s'%pnfiles)
                 
-                if paramnames or pnfiles:
-                    with open(paramnames or pnfiles[0]) as f:
+            else:
+                
+                # try automatically finding the corresponding *.paramnames file
+                if paramnames is None:
+                    pnfiles = [os.path.join(os.path.dirname(path),f) for f in os.listdir(os.path.dirname(path)) if f.endswith('.paramnames') and os.path.basename(path).startswith(f[:-len('.paramnames')])]
+                    if len(pnfiles)>1: 
+                        raise Exception('Found multiple paramnames files for this chain; %s'%pnfiles)
+                    elif len(pnfiles)==1: 
+                        paramnames = pnfiles[0]
+                
+                # if we have a *.paramnames file at this point, load it
+                if isinstance(paramnames,str):
+                    with open(paramnames) as f:
                         names = ['weight','lnl']+[line.split()[0] for line in f]
                         
-                try:
-                    with open(path) as f:
-                        if names==None: names = re.sub("#","",f.readline()).split()
+                with open(path) as f:
+                    
+                    # if still no *.paramnames, look for names inside a comment on the first line
+                    if paramnames is None: 
+                        line = f.readline()
+                        if not line.startswith("#"):
+                            raise Exception("Couldn't find any paramnames. Specify paramnames=... by hand.")
+                        paramnames = re.sub("#","",line).split()
+                            
+                    try:
                         data = loadtxt(f).T
-                    return Chain(list(zip(names,data)))
-                except: 
-                    return None
+                    except: 
+                        return None
+                    else:
+                        return Chain(list(zip(paramnames,data)))
+                
                     
         
         path = os.path.abspath(path)
