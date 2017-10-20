@@ -440,7 +440,7 @@ def like2d(datx,daty,weights=None,
     ax.contour(*args,colors=color,**kwargs)
     
 def like1d(dat,weights=None,
-           nbins=30,range=None,maxed=True,
+           nbins=30,ranges=None,maxed=True,
            ax=None,smooth=False,
            kde=True,
            zero_endpoints=False,
@@ -455,14 +455,14 @@ def like1d(dat,weights=None,
         except ImportError as e:
             raise Exception("Plotting with kde, kde1d, or kde2d set to True requires package 'getdist'. Install this package or set to False.") from e
         
-        d = MCSamples(samples=dat, weights=weights).get1DDensity(0)
+        d = MCSamples(samples=dat, weights=weights, names=['x'], ranges={'x':ranges or (None,None)}).get1DDensity(0)
         d.normalize('max' if maxed else 'integral')
         xem, H = d.x, d.P
         
     else:
     
         from matplotlib.mlab import movavg
-        H, xe = histogram(dat,bins=nbins,weights=weights,normed=True,range=range)
+        H, xe = histogram(dat,bins=nbins,weights=weights,normed=True,range=ranges)
         if maxed: H=H/max(H)
         xem=movavg(xe,2)
         
