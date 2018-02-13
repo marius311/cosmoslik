@@ -38,7 +38,7 @@ class polychord(SlikSampler):
         
         def likelihood(theta):
             l,p = lnl(*theta)
-            return -l, [p.get(k,nan) for k in self.output_extra_params]
+            return -float(l), [p.get(k,nan) for k in self.output_extra_params]
 
         def prior(hypercube):
             theta = [0.0] * len(self.sampled)
