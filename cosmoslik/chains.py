@@ -241,6 +241,10 @@ class Chain(dict):
         t=self.sample(ids)
         t['weight']=weight
         return t
+        
+    def thinto(self,num):
+        """Thin so we end up with `num` total samples"""
+        return self.thin(self.length(unique=False)//num)
     
     def savecov(self,file,params=None):
         """Write the covariance to a file where the first line is specifies the parameter names."""
@@ -444,6 +448,7 @@ def like1d(dat,weights=None,
            ax=None,smooth=False,
            kde=True,
            zero_endpoints=False,
+           filled=False,
            **kw):
     
     from matplotlib.pyplot import gca
@@ -476,7 +481,10 @@ def like1d(dat,weights=None,
         xem = hstack([[xem[0]],xem,[xem[-1]]])
         H = hstack([[0],H,[0]])
     
-    ax.plot(xem,H,**kw)
+    if filled:
+        ax.fill_between(xem,H,**kw)
+    else:
+        ax.plot(xem,H,**kw)
 
 def get_correlation(data,weights=None):
     cv = get_covariance(data,weights)
