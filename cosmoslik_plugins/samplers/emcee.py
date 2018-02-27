@@ -1,7 +1,6 @@
 from cosmoslik import *
 from cosmoslik import mpi
 from cosmoslik.chains import combine_covs
-from emcee import EnsembleSampler
 from collections import OrderedDict, namedtuple
 from numpy import ix_, zeros, ceil, hstack, dtype, empty, ones
 from numpy.random import multivariate_normal
@@ -61,6 +60,7 @@ class emcee(SlikSampler):
         # step each walker once, yield them all one-by-one, repeat
         weight = ones(self.nwalkers)
         isample = zeros(self.nwalkers,dtype=int)
+        from emcee import EnsembleSampler
         sampler = EnsembleSampler(self.nwalkers, len(self.sampled), lnprob, pool=self.pool)
 
         nsteps = int(ceil(self.num_samples/self.nwalkers))

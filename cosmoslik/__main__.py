@@ -4,24 +4,41 @@ import sys, os, traceback, argparse
 from .cosmoslik import load_script, Slik
 
 parser = argparse.ArgumentParser(prog='cosmoslik')
-parser.add_argument('-n',type=int,default=False,help='run multiple chains with MPI')
-parser.add_argument('--traceback',action='store_true',default=False,help='print out tracebacks on error messages')
-parser.add_argument('script',metavar="script.py",nargs='?',help='a script to run a chain from')
+parser.add_argument('-n',type=int,default=1,help='run multiple chains with MPI')
+parser.add_argument('-qn',type=int,help='submit as qsub job on QN nodes. same as --qsub "-l nodes=QN"')
+parser.add_argument('--qsub',type=str,default='',help="submit as qsub job, with QSUB as options to qsub")
+parser.add_argument('--qlog',type=str,default='/dev/null',help="qsub output filename (default: none)")
+parser.add_argument('--qname',type=str,default='/dev/null',help="qsub job name")
+parser.add_argument('--traceback',action='store_true',default=True,help='print out tracebacks on error messages')
+parser.add_argument('script',metavar="script.py",help='a script to run a chain from')
 parser.add_argument('script_args', nargs=argparse.REMAINDER, metavar="...", help='arguments to pass to script')
 
-def main():
+def main(args):
+    
+    args.qsub = args.qsub.split()
+    if args.qn:
+        args.qsub += ['-l','nodes=%i'%args.qn]
 
-    if args.n:
+    if args.qsub or args.n:
+        i = sys.argv.index(args.script)
+        cmd = "{python} -m cosmoslik {args}".format(python=sys.executable, args=' '.join(map(escape_string,sys.argv[i:])))
+
+    if args.qsub:
+        args.qlog = args.qlog.format(**vars(args)) # allows using e.g. --qlog logs/{qname}
+        args.qsub += ['-j','oe','-o',args.qlog]
+        if args.qname: args.qsub += ['-N',args.qname]
+        args.qsub = ' '.join(args.qsub)
+        os.system("echo 'cd {curdir} && mpiexec -n {n} {cmd} 2>&1 | tee {curdir}/{qlog} ' | qsub {qsub}".format(
+            curdir=os.path.abspath(os.curdir), cmd=cmd, **vars(args)
+        ))
+    elif args.n>1:
         try:
             from mpi4py import MPI
         except Exception as e:
             raise Exception("Failed to load mpi4py which is needed to run with CosmoSlik '-n'.") from e
         else:
-            i = sys.argv.index('-n')
-            sys.argv.pop(i); sys.argv.pop(i)
-            os.system("mpiexec -n %i %s -m cosmoslik %s"%(args.n,sys.executable,' '.join(map(escape_string,sys.argv[1:]))))
-        
-    elif args.script:
+            os.system("mpiexec -n {n} {cmd}".format(n=args.n, cmd=cmd))
+    else:
         parser, script = load_script(args.script)
         for _ in Slik(script(**vars(parser.parse_args(args.script_args)))).sample(): pass
 
@@ -37,12 +54,12 @@ def escape_string(s):
         print("WARNING: `cosmoslik -n ...` may not work properly because of: \n"+str(e))
         return s
 
-
-if not sys.argv[1:]: parser.print_help()
+if not sys.argv[1:] or '-h' in sys.argv: 
+    parser.print_help()
 else:
     args = parser.parse_args()
     try:
-        main()
+        main(args)
     except BaseException as e:
         if isinstance(e,(Exception,KeyboardInterrupt)):
             if args.traceback: 
