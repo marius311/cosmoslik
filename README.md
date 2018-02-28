@@ -1,5 +1,7 @@
 CosmoSlik
 =========
+<a href="http://ascl.net/1701.004"><img src="https://img.shields.io/badge/ascl-1701.004-blue.svg?colorB=262255" alt="ascl:1701.004" /></a>
+
 
 CosmoSlik stands for **Cosmo**logy **S**ampler of **Lik**elihoods. 
 
