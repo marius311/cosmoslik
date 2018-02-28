@@ -28,9 +28,11 @@ def main(args):
         args.qsub += ['-j','oe','-o',args.qlog]
         if args.qname: args.qsub += ['-N',args.qname]
         args.qsub = ' '.join(args.qsub)
-        os.system("echo 'cd {curdir} && mpiexec -n {n} {cmd} 2>&1 | tee {curdir}/{qlog} ' | qsub {qsub}".format(
+        qsub_command = "echo 'cd {curdir} && mpiexec -n {n} {cmd} 2>&1 | tee {curdir}/{qlog} ' | qsub {qsub}".format(
             curdir=os.path.abspath(os.curdir), cmd=cmd, **vars(args)
-        ))
+        )
+        print(qsub_command)
+        os.system(qsub_command)
     elif args.n>1:
         try:
             from mpi4py import MPI
