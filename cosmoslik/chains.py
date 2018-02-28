@@ -462,20 +462,21 @@ def like1d(dat,weights=None,
         
         d = MCSamples(samples=dat, weights=weights, names=['x'], ranges={'x':ranges or (None,None)}).get1DDensity(0)
         d.normalize('max' if maxed else 'integral')
-        xem, H = d.x, d.P
+        xem, H = d.x, d.P * (maxed or 1)
         
     else:
     
         from matplotlib.mlab import movavg
         H, xe = histogram(dat,bins=nbins,weights=weights,normed=True,range=ranges)
-        if maxed: H=H/max(H)
         xem=movavg(xe,2)
         
         if smooth:
             from scipy.interpolate import PchipInterpolator
             itp = PchipInterpolator(xem,H)
             xem = linspace(xem.min(),xem.max(),100)
-            H = itp(xem)
+            H = itp(xem) 
+        
+        if maxed: H = H/max(H) * (maxed or 1)
         
     if zero_endpoints:
         xem = hstack([[xem[0]],xem,[xem[-1]]])
