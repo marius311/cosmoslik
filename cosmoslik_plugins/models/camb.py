@@ -79,5 +79,6 @@ class camb(SlikPlugin):
             
         cp = self._camb.set_params(**self.convert_params(**params))
         self.result = self._camb.get_results(cp)
-        return dict(list(zip(['TT','EE','BB','TE'],
-                        (cp.TCMB*1e6)**2*self.result.get_cmb_power_spectra(spectra=['total'])['total'].T)))
+        cl = dict(list(zip(['TT','EE','BB','TE'],(cp.TCMB*1e6)**2*self.result.get_cmb_power_spectra(spectra=['total'])['total'].T)))
+        cl.update(dict(list(zip(['pp','pT','pE'],self.results.get_lens_potential_cls()))))
+        return cl
