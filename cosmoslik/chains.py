@@ -444,7 +444,7 @@ def like2d(datx,daty,weights=None,
     ax.contour(*args,colors=color,**kwargs)
     
 def like1d(dat,weights=None,
-           nbins=30,ranges=None,maxed=True,
+           nbins=30,ranges=None,maxed=False,
            ax=None,smooth=False,
            kde=True,
            zero_endpoints=False,
@@ -460,7 +460,12 @@ def like1d(dat,weights=None,
         except ImportError as e:
             raise Exception("Plotting with kde, kde1d, or kde2d set to True requires package 'getdist'. Install this package or set to False.") from e
         
-        d = MCSamples(samples=dat, weights=weights, names=['x'], ranges={'x':ranges or (None,None)}).get1DDensity(0)
+        if ranges:
+            i = bitwise_and(dat>(ranges[0] or -Inf), dat<(ranges[1] or Inf))
+            dat = dat[i]
+            weights = weights[i]
+            
+        d = MCSamples(samples=dat, weights=weights, names=['x'], ranges={'x':ranges or (None,None)}, settings={'smooth_scale_1D':(smooth or -1)}).get1DDensity(0)
         d.normalize('max' if maxed else 'integral')
         xem, H = d.x, d.P * (maxed or 1)
         
@@ -483,9 +488,9 @@ def like1d(dat,weights=None,
         H = hstack([[0],H,[0]])
     
     if filled:
-        ax.fill_between(xem,H,**kw)
-    else:
-        ax.plot(xem,H,**kw)
+        ax.fill_between(xem,H,alpha=(0.5 if filled is True else filled),**kw)
+        kw.pop('label')
+    ax.plot(xem,H,**kw)
 
 def get_correlation(data,weights=None):
     cv = get_covariance(data,weights)
