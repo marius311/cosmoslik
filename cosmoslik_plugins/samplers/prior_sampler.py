@@ -14,12 +14,10 @@ class prior_sampler(metropolis_hastings):
     
     def __init__(self, params, 
                  output_extra_params=None,
-                 num_samples=100, 
-                 mpi_comm_freq=100, 
-                 output_file=None):
+                 **kwargs):
     
         if output_extra_params is None: output_extra_params = []
-        super().__init__(params,**arguments(exclude=['params']))
+        super().__init__(params,proposal_update=False,**arguments(exclude=['params','proposal_update']))
 
         self.output_extra_params = OrderedDict([k if isinstance(k,tuple) else (k,dtype('float').name) for k in output_extra_params])
         self.sampled = params.find_sampled()
