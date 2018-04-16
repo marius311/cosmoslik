@@ -20,25 +20,32 @@ class clik(SlikPlugin):
     def __init__(self,
                  clik_file,
                  auto_reject_errors=False,
+                 lensing=None,
                  **nuisance):
 
         super().__init__(**arguments())
 
-        from clik import clik
+        from clik import clik, clik_lensing
         
-        if clik_file in loaded_cliks:
-            self.clik = loaded_cliks[clik_file]
+        if lensing or "lensing" in clik_file:
+            loaded_cliks[clik_file] = self.clik = loaded_cliks[clik_file] if clik_file in loaded_cliks else clik_lensing(clik_file)
+            self.lensing = True
+            self.clik_specs = ['pp'] + clik_specs
+            
         else:
-            loaded_cliks[clik_file] = self.clik = clik(clik_file)
+            loaded_cliks[clik_file] = self.clik = loaded_cliks[clik_file] if clik_file in loaded_cliks else clik(clik_file)
+            self.lensing = False
+            self.clik_specs = clik_specs
+                
 
 
     def __call__(self, cmb):
 
-        for x, lmax in zip(clik_specs,self.clik.get_lmax()):
+        for x, lmax in zip(self.clik_specs,self.clik.get_lmax()):
             if (lmax!=-1) and ((x not in cmb) or (cmb[x].size<lmax+1)):
                 raise ValueError("Need the %s spectrum to at least lmax=%i for clik file '%s'."%(x,lmax+1,osp.basename(self.clik_file)))
 
-        cl = hstack([tocl(cmb[x][:lmax+1]) for x, lmax in zip(clik_specs,self.clik.get_lmax()) if lmax!=-1])
+        cl = hstack([tocl(cmb[x][:lmax+1]) for x, lmax in zip(self.clik_specs,self.clik.get_lmax()) if lmax!=-1])
         nuisance = [self[k] for k in self.clik.get_extra_parameter_names()]
         try:
             lnl = -self.clik(hstack([cl,nuisance]))[0]
