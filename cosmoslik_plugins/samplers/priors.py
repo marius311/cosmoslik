@@ -1,13 +1,14 @@
 import os, os.path as osp
 from cosmoslik import *
 from cosmoslik import mpi
-from cosmoslik_plugins.samplers.metropolis_hastings import metropolis_hastings
-from cosmoslik_plugins.likelihoods.priors import priors as _priors
 from collections import OrderedDict
 from numpy.random import uniform
+#todo: cleanup handling of these two imports c.f. get_all_plugins
+from cosmoslik_plugins.samplers import metropolis_hastings
+from cosmoslik_plugins.likelihoods.priors import priors as likelihoods_priors
 
 
-class prior_sampler(metropolis_hastings):
+class priors(metropolis_hastings.metropolis_hastings):
     """
     Sample from the prior.
     """
@@ -23,7 +24,7 @@ class prior_sampler(metropolis_hastings):
         self.sampled = params.find_sampled()
 
         self.uniform_priors = {}
-        _uniform_priors = _priors(params).uniform_priors
+        _uniform_priors = likelihoods_priors(params).uniform_priors
         for k in self.sampled:
             pr = [(n,l,u) for (n,l,u) in _uniform_priors if n==k]
             if len(pr)>2:
