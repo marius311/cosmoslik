@@ -6,6 +6,7 @@ from itertools import takewhile
 from numpy.linalg import slogdet
 from math import sqrt
 import os
+import tarfile
 
 class SPTSZ_lowl(SlikPlugin):
     
@@ -20,20 +21,22 @@ class SPTSZ_lowl(SlikPlugin):
         self.cal=cal
         self.egfs = SPTSZ_lowl_egfs()
         self.ab_on=ab_on
-        newdat_file = 'data/SPTSZ_bandpowers_and_errors/spt_lps12_20120828/Spectrum_spt2500deg2_lps12_alternativeCalibrationImplementation_no_beam_cov.newdat'
+        tar_file = 'data/SPTSZ_bandpowers_and_errors/spt_lps12_20120828/Spectrum_spt2500deg2_lps12_alternativeCalibrationImplementation_no_beam_cov.newdat.tar'
         
-        newdat_file = osp.join(osp.dirname(__file__),newdat_file)
-            #Load spectrum and covariance
-        with open(newdat_file) as f:
-            window_dir = osp.dirname(f.readline())
+        tar_file = osp.join(osp.dirname(__file__),tar_file)
+        #Load spectrum and covariance
+        with tarfile.open(tar_file) as tf:
+            newdat_file = next(f for f in tf.getnames() if "newdat" in f)
+            f = tf.extractfile(newdat_file)
             while 'TT' not in f.readline(): pass
             self.spec=array([fromstring(f.readline(),sep=' ')[1] for _ in range(47)])
             self.sigma=array([fromstring(f.readline(),sep=' ') for _ in range(47)])
-        
         #Load window functions
-        self.windows = array([loadtxt(osp.join(osp.dirname(newdat_file),'windows',window_dir,'window_%i'%i))[:,1] for i in range(1,48)])
-        #Get window range to cut theory down to size
-        self.windowrange = (lambda x: slice(int(min(x)),int(max(x)+1)))(loadtxt(osp.join(osp.dirname(newdat_file),'windows',window_dir,'window_1'))[:,0])
+        window_file = 'data/SPTSZ_bandpowers_and_errors/spt_lps12_20120828/windows/window_lps12.tar'
+        with tarfile.open(window_file) as tf:
+            self.windows = array([loadtxt(tf.extractfile('window_lps12/window_%i'%i))[:,1] for i in range(1,48)])
+            #Get window range to cut theory down to size
+            self.windowrange = (lambda x: slice(int(min(x)),int(max(x)+1)))(loadtxt(tf.extractfile('window_lps12/window_1'))[:,0])
         self.lmax = self.windowrange.stop
         self.ells = array([dot(arange(10000)[self.windowrange],w) for w in self.windows])
         
@@ -95,18 +98,18 @@ class SPTSZ_lowl(SlikPlugin):
         dir = os.path.dirname(os.path.abspath(__file__)) #abosolute path to current file, keep beam templates in subdirectory
         
         #put beam templates in dictionary labled according to name and year
-        names = ['dc','alpha','wobble','xtalk','outer','inner','venus']
-        freq = '150'
-        years = ['2008','2009','2010','2011']
-        year_weights = {'2008': 0.065919966,'2009': 0.22589127,'2010': 0.28829848,'2011': 0.41989028}
-        beam_errs = {}
-        for name in names:
-            for year in years:
-                    beam_err_file = os.path.join(dir,
-                        'data/SPTSZ_beam_errors/errgrid_'+name+'_'+year+'_'+freq+'.txt')
-                    beam_errs[name+year]=loadtxt(beam_err_file)[:,1]
-        mode_names = names[:2]+[names[2:][i]+years[j] for i in range(5) for j in range(4)]
-     
+        beam_file = os.path.join(dir,'data/SPTSZ_beam_errors.tar')
+        with tarfile.open(beam_file) as tf:
+            names = ['dc','alpha','wobble','xtalk','outer','inner','venus']
+            freq = '150'
+            years = ['2008','2009','2010','2011']
+            year_weights = {'2008': 0.065919966,'2009': 0.22589127,'2010': 0.28829848,'2011': 0.41989028}
+            beam_errs = {}
+            for name in names:
+                for year in years:
+                    beam_errs[name+year]=loadtxt(tf.extractfile('SPTSZ_beam_errors/'+
+                    'errgrid_'+name+'_'+year+'_'+freq+'.txt'))[:,1]
+            mode_names = names[:2]+[names[2:][i]+years[j] for i in range(5) for j in range(4)]
         #we only care about the four year average for dc and alpha so lets do that now
         for year in years:
                 for k in mode_names[:2]:
