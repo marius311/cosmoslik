@@ -413,24 +413,27 @@ def likepoints(chain,p1,p2,pcolor,
 
 
 def like2d(datx,daty,weights=None,
-           nbins=15,which=[.68,.95],
-           filled=True, color=None, cmap=None,
+           nbins=15, which=[.68,.95], range=None,
+           filled=True, color=None, cmap=None, smooth=None,
            ax=None,
            **kwargs):
     
     from matplotlib.pyplot import gca, get_cmap
     from matplotlib.mlab import movavg
     from matplotlib.colors import LinearSegmentedColormap
+    from scipy.ndimage import gaussian_filter
     
     if ax is None: ax = gca()
     if weights is None: weights=ones(len(datx))
     if color is None: color = kwargs.pop('c') if 'c' in kwargs else 'b' 
     
-    H,xe,ye = histogram2d(datx,daty,nbins,weights=weights)
+    H,xe,ye = histogram2d(datx,daty,nbins,weights=weights, range=range)
     xem, yem = movavg(xe,2), movavg(ye,2)
     
-    args = (xem,yem,transpose(H))
     kwargs = dict(levels=confint2d(H, sorted(which)[::-1]+[0]),**kwargs)
+    if smooth: H = gaussian_filter(H,smooth)
+    args = (xem,yem,transpose(H))
+    
     if cmap is None: 
         cmap = {'b':'Blues',
                 'g':'Greens',
