@@ -405,8 +405,8 @@ def likepoints(chain,p1,p2,pcolor,
         ax.plot(s[p1],s[p2],color=c,markeredgecolor=c,marker=marker,markersize=markersize,zorder=-1,**kwargs)
         
     if cax is None: cax = colorbar.make_axes(ax)[0]
-    if clim is None: cb = colorbar.ColorbarBase(ax=cax,  norm=colors.Normalize(vmin=mu-nsig*sig, vmax=mu+nsig*sig))
-    else: cb = colorbar.ColorbarBase(ax=cax,  norm=colors.Normalize(vmin=clim[0], vmax=clim[1]))
+    if clim is None: cb = colorbar.ColorbarBase(ax=cax,  norm=colors.Normalize(vmin=mu-nsig*sig, vmax=mu+nsig*sig), cmap=cmap)
+    else: cb = colorbar.ColorbarBase(ax=cax,  norm=colors.Normalize(vmin=clim[0], vmax=clim[1]), cmap=cmap)
     
     sca(ax)
     return ax,cax
