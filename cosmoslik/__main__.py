@@ -56,7 +56,7 @@ def escape_string(s):
         print("WARNING: `cosmoslik -n ...` may not work properly because of: \n"+str(e))
         return s
 
-if not sys.argv[1:] or '-h' in sys.argv: 
+if not sys.argv[1:] or sys.argv[1] in ["-h","--help"]: 
     parser.print_help()
 else:
     args = parser.parse_args()
